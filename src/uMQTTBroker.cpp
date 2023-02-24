@@ -101,3 +101,15 @@ uMQTTBroker *uMQTTBroker::TheBroker;
 	MQTT_server_cleanupClientCons();
     }
 
+    void uMQTTBroker::add_cb_connected(void *arg){
+        MQTT_ClientCon_connected_cb(arg);
+    }
+    void uMQTTBroker::add_cb_sent(void *arg){
+        MQTT_ClientCon_sent_cb(arg);
+    }
+    void uMQTTBroker::add_cb_discon(void *arg){
+        MQTT_ClientCon_discon_cb(arg);
+    }
+    void uMQTTBroker::add_cb_recv(void *arg, char *pdata, unsigned short len){
+        MQTT_ClientCon_recv_cb(arg, pdata,len);
+    }

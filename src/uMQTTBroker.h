@@ -4,12 +4,15 @@
 #include "user_interface.h"
 #include "IPAddress.h"
 #include "string.h"
-
 #ifndef ipv4_addr_t
 #define ipv4_addr_t ip_addr_t
 #endif
 
 extern "C" {
+void ICACHE_FLASH_ATTR MQTT_ClientCon_connected_cb(void *arg);
+void ICACHE_FLASH_ATTR MQTT_ClientCon_sent_cb(void *arg);
+void ICACHE_FLASH_ATTR MQTT_ClientCon_discon_cb(void *arg);
+void ICACHE_FLASH_ATTR MQTT_ClientCon_recv_cb(void *arg, char *pdata, unsigned short len);
 
 // Interface for starting the broker
 
@@ -94,6 +97,12 @@ public:
 // Cleanup all clients on Wifi connection loss
 
     void cleanupClientConnections();
+
+    void add_cb_connected(void *arg);
+    void add_cb_sent(void *arg);
+    void add_cb_discon(void *arg);
+    void add_cb_recv(void *arg, char *pdata, unsigned short len);
+
 };
 
 #endif /* _MQTT_SERVER_H_ */

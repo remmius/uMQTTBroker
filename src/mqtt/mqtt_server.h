@@ -12,7 +12,19 @@
 //#include "lwip/app/espconn.h"
 //#include "lwip/app/espconn_tcp.h"
 
+
+// typedef struct _myclientcon {
+//   WiFiClient *client;
+//   void *reverse;  
+// } myclientcon;
+
 #define LOCAL_MQTT_CLIENT ((void*)-1)
+
+void ICACHE_FLASH_ATTR MQTT_ClientCon_connected_cb(void *arg);
+void ICACHE_FLASH_ATTR MQTT_ClientCon_sent_cb(void *arg);
+void ICACHE_FLASH_ATTR MQTT_ClientCon_discon_cb(void *arg);
+void ICACHE_FLASH_ATTR MQTT_ClientCon_recv_cb(void *arg, char *pdata, unsigned short len);
+
 
 typedef bool (*MqttAuthCallback)(const char* username, const char *password, const char* client_id, struct espconn *pesp_conn);
 typedef bool (*MqttConnectCallback)(struct espconn *pesp_conn, uint16_t client_count);
@@ -38,6 +50,7 @@ typedef struct _MQTT_ClientCon {
   uint8_t protocolVersion;
   void* user_data;
   struct _MQTT_ClientCon *next;
+  uint8_t id;
 } MQTT_ClientCon;
 
 extern MQTT_ClientCon *clientcon_list;
