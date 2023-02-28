@@ -10,17 +10,16 @@ extern "C"{
 #include "mqtt/debug.h"
 
 // Mem Debug
-#undef os_free
-#define os_free(x) {Serial.printf("F:%d\r\n", __LINE__);vPortFree(x, "", 0);}
-
-void * my_os_zalloc(int len, int line) {
-Serial.printf("A:%d->  (%d)\r\n", line,  len);
-return calloc(1,len);
-}
-#undef os_zalloc
-#define os_zalloc(x) my_os_zalloc(x, __LINE__)
-#undef os_malloc
-#define os_malloc(x) my_os_zalloc(x, __LINE__)
+// #undef os_free
+// #define os_free(x) {Serial.printf("F:%d\r\n", __LINE__);vPortFree(x, "", 0);}
+// void * my_os_zalloc(int len, int line) {
+// Serial.printf("A:%d->  (%d)\r\n", line,  len);
+// return calloc(1,len);
+// }
+// #undef os_zalloc
+// #define os_zalloc(x) my_os_zalloc(x, __LINE__)
+// #undef os_malloc
+// #define os_malloc(x) my_os_zalloc(x, __LINE__)
 //*/
 
 #define MAX_SUBS_PER_REQ      16
@@ -44,6 +43,79 @@ MQTT_ClientCon dummy_clientcon;
 //#define MQTT_INFO os_printf
 #define MQTT_WARNING printf //ME
 #define MQTT_ERROR printf
+
+#define MAX_CLIENTS 5
+myclientcon *myclientcons[MAX_CLIENTS]={ NULL };
+WiFiServer *pserver;
+
+static int get_client_id(WiFiClient client){
+  for (int i=0 ; i<MAX_CLIENTS ; ++i) {
+    if (NULL != myclientcons[i]) {
+      if(client.remotePort()==myclientcons[i]->client->remotePort() && client.remoteIP()==myclientcons[i]->client->remoteIP()){
+       return i;
+      }        
+    }
+  }
+  return -1;
+}
+static int add_new_client(WiFiClient client){
+  for (int i=0 ; i<MAX_CLIENTS ; ++i) {
+        if (NULL == myclientcons[i]) {             
+          Serial.print("Add client: ");
+          //myclientcons[i] = (_myclientcon*) os_zalloc(sizeof(_myclientcon));  
+          myclientcons[i] = (_myclientcon*) calloc(1,sizeof(_myclientcon));
+          myclientcons[i]->client = new WiFiClient(client);
+		  MQTT_ClientCon_connected_cb(myclientcons[i]);
+          Serial.println(i);
+          return i;
+        }
+    }
+  Serial.println("Max clients reached");
+  client.stop();
+  return -1;
+}
+
+static void ICACHE_FLASH_ATTR Network_server_loop(){
+  WiFiClient client = pserver->available();
+  if (client) {// client is true only if it is connected and has data to read
+    Serial.println("new client connectec");
+    int idx_client=get_client_id(client);     
+    if (idx_client<0){
+      client.setTimeout(30);
+      if(add_new_client(client)==-1){
+        client.stop();//disconnect client
+      }
+    }
+  }
+}
+static void ICACHE_FLASH_ATTR Network_clients_loop(){
+  for (int i=0 ; i<MAX_CLIENTS ; ++i) {
+    if (myclientcons[i]!=NULL){      
+	  if (myclientcons[i]->client->connected()==false) {        //Remove unconnected-clients    
+            MQTT_ClientCon_discon_cb(myclientcons[i]);
+            //os_free(myclientcons[i]);
+            Serial.print("Free client: ");
+            Serial.println(sizeof(myclientcons[i]));
+            delete(myclientcons[i]->client);
+            free(myclientcons[i]);
+            myclientcons[i]=NULL;
+        }
+	 else{//Read data and trigger callbacks from connected clients
+		size_t len =myclientcons[i]->client->available();    
+      	if(len>1){ 
+          uint8_t buf[1024];     
+          myclientcons[i]->client->read(buf, len);
+          MQTT_ClientCon_recv_cb(myclientcons[i],(char *)&buf, len); 
+      	}
+	 } 
+    }
+  }
+}
+
+void ICACHE_FLASH_ATTR MQTT_network_loop(){
+  Network_server_loop();
+  Network_clients_loop();
+}
 
 bool ICACHE_FLASH_ATTR print_topic(topic_entry * topic, void *user_data) {
     if (topic->clientcon ==(MQTT_ClientCon*) LOCAL_MQTT_CLIENT) {
@@ -958,6 +1030,9 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 
 bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics) {
     MQTT_INFO("Starting MQTT server on port %d\r\n", portno);
+	pserver = new WiFiServer(portno);  // set port here
+	pserver->begin();
+
     if (!create_topiclist(max_subscriptions))
 	return false;
     if (!create_retainedlist(max_retained_topics))
@@ -965,28 +1040,7 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
     clientcon_list = NULL;
 	
     dummy_clientcon.connState = TCP_DISCONNECT;
-	//TODO add wifiserver here
-    // struct espconn *pCon = (struct espconn *)os_zalloc(sizeof(struct espconn));
-    // if (pCon == NULL)
-	// return false;
-
-    // /* Equivalent to bind */
-    // pCon->type = ESPCONN_TCP;
-    // pCon->state = ESPCONN_NONE;
-    // pCon->proto.tcp = (esp_tcp *) os_zalloc(sizeof(esp_tcp));
-    // if (pCon->proto.tcp == NULL) {
-	// os_free(pCon);
-	// return false;
-    // }
-    // pCon->proto.tcp->local_port = portno;
-
-    // /* Register callback when clients connect to the server */
-    // espconn_regist_connectcb(pCon, MQTT_ClientCon_connected_cb);
 	
-
-    // /* Put the connection in accept mode */
-    // espconn_accept(pCon);
-
     system_os_task(MQTT_ServerTask, MQTT_SERVER_TASK_PRIO, mqtt_procServerTaskQueue, MQTT_TASK_QUEUE_SIZE);
     return true;
 }

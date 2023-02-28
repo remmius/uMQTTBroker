@@ -74,6 +74,7 @@ public:
     uMQTTBroker(uint16_t portno=1883, uint16_t max_subscriptions=30, uint16_t max_retained_topics=30);
 
     void init();
+    void loop();
 
 // Callbacks on client actions
 
@@ -98,11 +99,6 @@ public:
 // Cleanup all clients on Wifi connection loss
 
     void cleanupClientConnections();
-
-    void cb_connected(void *arg);
-    void cb_sent(void *arg);
-    void cb_discon(void *arg);
-    void cb_recv(void *arg, char *pdata, unsigned short len);
 
 };
 

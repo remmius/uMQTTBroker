@@ -17,7 +17,7 @@ extern "C" {
 #include <ESP8266WiFi.h>
 typedef struct _myclientcon {
    WiFiClient *client;
-   void *reverse;  
+   void *reverse; 
  } myclientcon;
 
 #define LOCAL_MQTT_CLIENT ((void*)-1)
@@ -76,4 +76,5 @@ bool MQTT_local_subscribe(uint8_t* topic, uint8_t qos);
 bool MQTT_local_unsubscribe(uint8_t* topic);
 
 bool publish_retainedtopic(retained_entry * entry, void* user_data);
+void MQTT_network_loop();
 #endif /* _MQTT_SERVER_H_ */

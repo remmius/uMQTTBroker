@@ -1,6 +1,6 @@
 
 #include "uMQTTBroker.h"
-//#include "espconn.h"
+
 //TODO remove send timeout/sent callback
 uMQTTBroker *uMQTTBroker::TheBroker;
 
@@ -95,16 +95,9 @@ uMQTTBroker *uMQTTBroker::TheBroker;
 	MQTT_server_cleanupClientCons();
     }
 
-    void uMQTTBroker::cb_connected(void *arg){
-        MQTT_ClientCon_connected_cb(arg);
+    void uMQTTBroker::loop(){
+        MQTT_network_loop();
     }
-    void uMQTTBroker::cb_sent(void *arg){
-        MQTT_ClientCon_sent_cb(arg);
-    }
-    void uMQTTBroker::cb_discon(void *arg){
-        MQTT_ClientCon_discon_cb(arg);
-    }
-    void uMQTTBroker::cb_recv(void *arg, char *pdata, unsigned short len){
-        MQTT_ClientCon_recv_cb(arg, pdata,len);
-    }
+
+
   
