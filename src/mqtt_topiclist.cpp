@@ -8,8 +8,9 @@
 //#include "user_config.h"
 
 #include "mqtt/mqtt_topiclist.h"
+extern "C" {
 #include "mqtt/mqtt_topics.h"
-
+}
 static topic_entry *topic_list = NULL;
 static uint16_t max_entry;
 
@@ -24,15 +25,15 @@ bool ICACHE_FLASH_ATTR add_topic(MQTT_ClientCon * clientcon, uint8_t * topic, ui
 
     if (topic_list == NULL)
 	return false;
-    if (!Topics_isValidName(topic))
+    if (!Topics_isValidName((char*)topic))
 	return false;
 
     for (i = 0; i < max_entry; i++) {
 	if (topic_list[i].clientcon == NULL) {
-	    topic_list[i].topic = (uint8_t *) os_malloc(os_strlen(topic) + 1);
+	    topic_list[i].topic = (uint8_t *) os_malloc(os_strlen((char*)topic) + 1);
 	    if (topic_list[i].topic == NULL)
 		return false;
-	    os_strcpy(topic_list[i].topic, topic);
+	    os_strcpy((char*)topic_list[i].topic, (char*)topic);
 	    topic_list[i].clientcon = clientcon;
 	    topic_list[i].qos = qos;
 	    return true;
@@ -49,7 +50,7 @@ bool ICACHE_FLASH_ATTR delete_topic(MQTT_ClientCon * clientcon, uint8_t * topic)
 
     for (i = 0; i < max_entry; i++) {
 	if (topic_list[i].clientcon != NULL && (clientcon == NULL || topic_list[i].clientcon == clientcon)) {
-	    if (topic == NULL || (topic_list[i].topic != NULL && strcmp(topic, topic_list[i].topic) == 0)) {
+	    if (topic == NULL || (topic_list[i].topic != NULL && strcmp((char*)topic, (char*)topic_list[i].topic) == 0)) {
 		topic_list[i].clientcon = NULL;
 		os_free(topic_list[i].topic);
 		topic_list[i].qos = 0;
@@ -68,7 +69,7 @@ bool ICACHE_FLASH_ATTR find_topic(uint8_t * topic, find_topic_cb cb, uint8_t * d
 
     for (i = 0; i < max_entry; i++) {
 	if (topic_list[i].clientcon != NULL) {
-	    if (Topics_matches(topic_list[i].topic, 1, topic)) {
+	    if (Topics_matches((char*)topic_list[i].topic, 1, (char*)topic)) {
 		(*cb) (&topic_list[i], topic, data, data_len);
 		retval = true;
 	    }

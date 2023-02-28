@@ -1,24 +1,18 @@
 
 #include "uMQTTBroker.h"
-#include "espconn.h"
-
+//#include "espconn.h"
+//TODO remove send timeout/sent callback
 uMQTTBroker *uMQTTBroker::TheBroker;
 
-    bool uMQTTBroker::_onConnect(struct espconn *pesp_conn, uint16_t client_count) {
-	IPAddress connAddr(pesp_conn->proto.tcp->remote_ip[0], pesp_conn->proto.tcp->remote_ip[1],
-			   pesp_conn->proto.tcp->remote_ip[2], pesp_conn->proto.tcp->remote_ip[3]);
-	
-	return TheBroker->onConnect(connAddr, client_count);
+    bool uMQTTBroker::_onConnect(struct _myclientcon *pesp_conn, uint16_t client_count) {
+	return TheBroker->onConnect(pesp_conn->client->remoteIP(), client_count);
+   }
+
+    void uMQTTBroker::_onDisconnect(struct _myclientcon *pesp_conn, const char *client_id) {
+	TheBroker->onDisconnect(pesp_conn->client->remoteIP(), (String)client_id);
     }
 
-    void uMQTTBroker::_onDisconnect(struct espconn *pesp_conn, const char *client_id) {
-	IPAddress connAddr(pesp_conn->proto.tcp->remote_ip[0], pesp_conn->proto.tcp->remote_ip[1],
-			   pesp_conn->proto.tcp->remote_ip[2], pesp_conn->proto.tcp->remote_ip[3]);
-	
-	    TheBroker->onDisconnect(connAddr, (String)client_id);
-    }
-
-    bool uMQTTBroker::_onAuth(const char* username, const char *password, const char* client_id, struct espconn *pesp_conn) {
+    bool uMQTTBroker::_onAuth(const char* username, const char *password, const char* client_id, struct _myclientcon *pesp_conn) {
 	return TheBroker->onAuth((String)username, (String)password, (String)client_id);
     }
 
@@ -78,10 +72,10 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     }
 
     bool uMQTTBroker::getClientAddr(uint16_t index, IPAddress& addr) {
-        const struct espconn* pesp_conn = MQTT_server_getClientPcon(index);
+        const struct _myclientcon* pesp_conn = MQTT_server_getClientPcon(index);
         if (pesp_conn == NULL)
             return false;
-        addr = pesp_conn->proto.tcp->remote_ip;
+        addr = pesp_conn->client->remoteIP();
         return true;
     }
 
@@ -101,15 +95,16 @@ uMQTTBroker *uMQTTBroker::TheBroker;
 	MQTT_server_cleanupClientCons();
     }
 
-    void uMQTTBroker::add_cb_connected(void *arg){
+    void uMQTTBroker::cb_connected(void *arg){
         MQTT_ClientCon_connected_cb(arg);
     }
-    void uMQTTBroker::add_cb_sent(void *arg){
+    void uMQTTBroker::cb_sent(void *arg){
         MQTT_ClientCon_sent_cb(arg);
     }
-    void uMQTTBroker::add_cb_discon(void *arg){
+    void uMQTTBroker::cb_discon(void *arg){
         MQTT_ClientCon_discon_cb(arg);
     }
-    void uMQTTBroker::add_cb_recv(void *arg, char *pdata, unsigned short len){
+    void uMQTTBroker::cb_recv(void *arg, char *pdata, unsigned short len){
         MQTT_ClientCon_recv_cb(arg, pdata,len);
     }
+  

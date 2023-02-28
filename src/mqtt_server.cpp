@@ -2,25 +2,26 @@
 #include "mem.h"
 
 #include "mqtt/mqtt_server.h"
+extern "C"{
 #include "mqtt/mqtt_topics.h"
+#include "mem.h"
+}
 #include "mqtt/mqtt_topiclist.h"
-#include "mqtt/mqtt_retainedlist.h"
 #include "mqtt/debug.h"
 
-/* Mem Debug
+// Mem Debug
 #undef os_free
-#define os_free(x) {os_printf("F:%d-> %x\r\n", __LINE__,(x));vPortFree(x, "", 0);}
+#define os_free(x) {Serial.printf("F:%d\r\n", __LINE__);vPortFree(x, "", 0);}
 
-int my_os_zalloc(int len, int line) {
-int _v = pvPortZalloc(len, "", 0);
-os_printf("A:%d-> %x (%d)\r\n", line, _v, len);
-return _v;
+void * my_os_zalloc(int len, int line) {
+Serial.printf("A:%d->  (%d)\r\n", line,  len);
+return calloc(1,len);
 }
 #undef os_zalloc
 #define os_zalloc(x) my_os_zalloc(x, __LINE__)
 #undef os_malloc
 #define os_malloc(x) my_os_zalloc(x, __LINE__)
-*/
+//*/
 
 #define MAX_SUBS_PER_REQ      16
 
@@ -39,7 +40,6 @@ LOCAL MqttDisconnectCallback local_disconnect_cb = NULL;
 LOCAL MqttAuthCallback local_auth_cb = NULL;
 
 MQTT_ClientCon dummy_clientcon;
-struct espconn *mypCon; //ME
 //#undef MQTT_INFO
 //#define MQTT_INFO os_printf
 #define MQTT_WARNING printf //ME
@@ -103,7 +103,7 @@ bool ICACHE_FLASH_ATTR activate_next_client() {
     MQTT_ClientCon *clientcon = clientcon_list;
 
     for (clientcon = clientcon_list; clientcon != NULL; clientcon = clientcon->next) {
-	if ((!QUEUE_IsEmpty(&clientcon->msgQueue)) && clientcon->pCon->state != ESPCONN_CLOSE) {
+	if ((!QUEUE_IsEmpty(&clientcon->msgQueue)) && clientcon->pCon->client->connected()) {
 	    MQTT_INFO("MQTT: Next message to client: %s\r\n", clientcon->connect_info.client_id);
 	    system_os_post(MQTT_SERVER_TASK_PRIO, 0, (os_param_t) clientcon);
 	    return true;
@@ -161,7 +161,7 @@ const char* ICACHE_FLASH_ATTR MQTT_server_getClientId(uint16_t index) {
     return NULL;
 }
 
-const struct espconn* ICACHE_FLASH_ATTR MQTT_server_getClientPcon(uint16_t index) {
+const struct _myclientcon* ICACHE_FLASH_ATTR MQTT_server_getClientPcon(uint16_t index) {
     MQTT_ClientCon *p;
     uint16_t count = 0;
     for (p = clientcon_list; p != NULL; p = p->next, count++) {
@@ -270,13 +270,12 @@ bool ICACHE_FLASH_ATTR MQTT_server_deleteClientCon(MQTT_ClientCon * mqttClientCo
 }
 
 void ICACHE_FLASH_ATTR MQTT_server_cleanupClientCons() {
-	MQTT_INFO("MQTT: MQTT_server_cleanupClientCons %d \r\n",   mypCon->link_cnt);//ME
     MQTT_ClientCon *clientcon, *clientcon_tmp;
     for (clientcon = clientcon_list; clientcon != NULL; ) {
 	clientcon_tmp = clientcon;
 	clientcon = clientcon->next;
-	if (clientcon_tmp->pCon->state == ESPCONN_CLOSE) {
-	    espconn_delete(clientcon_tmp->pCon);
+	if (clientcon_tmp->pCon->client->connected() == false) {
+	    //espconn_delete(clientcon_tmp->pCon);
 	    MQTT_server_deleteClientCon(clientcon_tmp);
 	}
     }
@@ -330,7 +329,7 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_recv_cb(void *arg, char *pdata, unsigned s
     uint16_t data_len;
     uint8_t *data;
 
-    struct espconn *pCon = (struct espconn *)arg;
+    struct _myclientcon *pCon = (struct _myclientcon *)arg;
 
     MQTT_INFO("MQTT_ClientCon_recv_cb(): %d bytes of data received\r\n", len);
 
@@ -419,7 +418,8 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_recv_cb(void *arg, char *pdata, unsigned s
 	    clientcon->connect_info.clean_session = (variable_header->flags & MQTT_CONNECT_FLAG_CLEAN_SESSION) != 0;
 
 	    clientcon->connect_info.keepalive = (variable_header->keepaliveMsb << 8) + variable_header->keepaliveLsb;
-	    espconn_regist_time(clientcon->pCon, 2 * clientcon->connect_info.keepalive, 1);
+	    //espconn_regist_time(clientcon->pCon, 2 * clientcon->connect_info.keepalive, 1);
+		clientcon->pCon->client->setTimeout(2 * clientcon->connect_info.keepalive);
 	    MQTT_INFO("MQTT: Keepalive %d\r\n", clientcon->connect_info.keepalive);
 
 	    // Get the client id
@@ -841,7 +841,7 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_recv_cb(void *arg, char *pdata, unsigned s
 
 /* Called when a client has disconnected from the MQTT server */
 void ICACHE_FLASH_ATTR MQTT_ClientCon_discon_cb(void *arg) {
-    struct espconn *pCon = (struct espconn *)arg;
+    struct _myclientcon *pCon = (struct _myclientcon *)arg;
     MQTT_ClientCon *clientcon = (MQTT_ClientCon *) pCon->reverse;
 
     MQTT_INFO("MQTT_ClientCon_discon_cb(): client disconnected\r\n");
@@ -854,7 +854,7 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_discon_cb(void *arg) {
 }
 
 void ICACHE_FLASH_ATTR MQTT_ClientCon_sent_cb(void *arg) {
-    struct espconn *pCon = (struct espconn *)arg;
+    struct _myclientcon *pCon = (struct _myclientcon *)arg;
     MQTT_ClientCon *clientcon = (MQTT_ClientCon *) pCon->reverse;
 
     MQTT_INFO("MQTT_ClientCon_sent_cb(): Data sent\r\n");
@@ -870,16 +870,16 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_sent_cb(void *arg) {
 
 /* Called when a client connects to the MQTT server */
 void ICACHE_FLASH_ATTR MQTT_ClientCon_connected_cb(void *arg) {
-    struct espconn *pespconn = (struct espconn *)arg;
+    struct _myclientcon *pespconn = (struct _myclientcon *)arg;
     MQTT_ClientCon *mqttClientCon;
     pespconn->reverse = NULL;
 
-    MQTT_INFO("MQTT_ClientCon_connected_cb(): Client connected\r\n");
+    Serial.print("MQTT_ClientCon_connected_cb(): Client connected\r\n");
 
-    espconn_regist_sentcb(pespconn, MQTT_ClientCon_sent_cb);
-    espconn_regist_disconcb(pespconn, MQTT_ClientCon_discon_cb);
-    espconn_regist_recvcb(pespconn, MQTT_ClientCon_recv_cb);
-    espconn_regist_time(pespconn, 30, 1);
+    //espconn_regist_sentcb(pespconn, MQTT_ClientCon_sent_cb);
+    //espconn_regist_disconcb(pespconn, MQTT_ClientCon_discon_cb);
+    //espconn_regist_recvcb(pespconn, MQTT_ClientCon_recv_cb);
+    //espconn_regist_time(pespconn, 30, 1);
 
     mqttClientCon = (MQTT_ClientCon *) os_zalloc(sizeof(MQTT_ClientCon));
     pespconn->reverse = mqttClientCon;
@@ -923,7 +923,8 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 	MQTT_INFO("MQTT: Disconnect\r\n");
 
 	if (clientcon->pCon != NULL)
-	    espconn_disconnect(clientcon->pCon);
+	    //espconn_disconnect(clientcon->pCon);
+		clientcon->pCon->client->stop();
 
 	break;
 
@@ -938,8 +939,12 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 	    clientcon->sendTimeout = MQTT_SEND_TIMOUT;
 	    MQTT_INFO("MQTT: Sending, type: %d, id: %04X\r\n", clientcon->mqtt_state.pending_msg_type,
 		      clientcon->mqtt_state.pending_msg_id);
-	    espconn_send(clientcon->pCon, dataBuffer, dataLen);
-
+	    //espconn_send(clientcon->pCon, dataBuffer, dataLen);
+		//if(clientcon->pCon->client->availableForWrite()){
+		clientcon->pCon->client->write(dataBuffer, dataLen);
+		MQTT_ClientCon_sent_cb(clientcon->pCon);
+		//}	
+		
 	    clientcon->mqtt_state.outbound_message = NULL;
 	    break;
 	} else {

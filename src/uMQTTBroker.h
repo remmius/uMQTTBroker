@@ -1,5 +1,5 @@
-#ifndef _MQTT_SERVER_H_
-#define _MQTT_SERVER_H_
+#ifndef _MQTT_BROKER_H_
+#define _MQTT_BROKER_H_
 
 #include "user_interface.h"
 #include "IPAddress.h"
@@ -7,7 +7,8 @@
 #ifndef ipv4_addr_t
 #define ipv4_addr_t ip_addr_t
 #endif
-
+#include "mqtt/mqtt_server.h"
+/*
 extern "C" {
 void ICACHE_FLASH_ATTR MQTT_ClientCon_connected_cb(void *arg);
 void ICACHE_FLASH_ATTR MQTT_ClientCon_sent_cb(void *arg);
@@ -32,9 +33,9 @@ void MQTT_server_onDisconnect(MqttDisconnectCallback disconnectCb);
 
 // Interface for local pub/sub interaction with the broker
 
-bool MQTT_local_publish(uint8_t* topic, uint8_t* data, uint16_t data_length, uint8_t qos, uint8_t retain);
-bool MQTT_local_subscribe(uint8_t* topic, uint8_t qos);
-bool MQTT_local_unsubscribe(uint8_t* topic);
+ bool MQTT_local_publish(uint8_t* topic, uint8_t* data, uint16_t data_length, uint8_t qos, uint8_t retain);
+ bool MQTT_local_subscribe(uint8_t* topic, uint8_t qos);
+ bool MQTT_local_unsubscribe(uint8_t* topic);
 
 // Interface to cleanup after STA disconnect
 
@@ -53,9 +54,9 @@ bool deserialize_retainedtopics(char *buf, int len);
 
 uint16_t MQTT_server_countClientCon();
 const char* MQTT_server_getClientId(uint16_t index);
-const struct espconn* MQTT_server_getClientPcon(uint16_t index);
+const struct _myclientcon* MQTT_server_getClientPcon(uint16_t index);
 }
-
+*/
 class uMQTTBroker
 {
 private:
@@ -64,9 +65,9 @@ private:
     uint16_t _max_subscriptions;
     uint16_t _max_retained_topics;
 
-    static bool _onConnect(struct espconn *pesp_conn, uint16_t client_count);
-    static void _onDisconnect(struct espconn *pesp_conn, const char *client_id);
-    static bool _onAuth(const char* username, const char *password,  const char *client_id, struct espconn *pesp_conn);
+    static bool _onConnect(struct _myclientcon *pesp_conn, uint16_t client_count);
+    static void _onDisconnect(struct _myclientcon *pesp_conn, const char *client_id);
+    static bool _onAuth(const char* username, const char *password,  const char *client_id, struct _myclientcon *pesp_conn);
     static void _onData(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t length);
 
 public:
@@ -98,11 +99,11 @@ public:
 
     void cleanupClientConnections();
 
-    void add_cb_connected(void *arg);
-    void add_cb_sent(void *arg);
-    void add_cb_discon(void *arg);
-    void add_cb_recv(void *arg, char *pdata, unsigned short len);
+    void cb_connected(void *arg);
+    void cb_sent(void *arg);
+    void cb_discon(void *arg);
+    void cb_recv(void *arg, char *pdata, unsigned short len);
 
 };
 
-#endif /* _MQTT_SERVER_H_ */
+#endif /* _MQTT_BROKER_H_ */

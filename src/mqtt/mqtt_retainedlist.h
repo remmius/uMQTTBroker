@@ -1,7 +1,7 @@
 #ifndef _MQTT_RETAINEDLIST_H_
 #define _MQTT_RETAINEDLIST_H_
 
-#include "mqtt_server.h"
+//#include "mqtt_server.h"
 
 typedef struct _retained_entry {
     uint8_t *topic;
