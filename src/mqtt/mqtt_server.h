@@ -70,6 +70,7 @@ void MQTT_server_onConnect(MqttConnectCallback connectCb);
 void MQTT_server_onDisconnect(MqttDisconnectCallback disconnectCb);
 void MQTT_server_onAuth(MqttAuthCallback authCb);
 void MQTT_server_onData(MqttDataCallback dataCb);
+void MQTT_server_onRetain(on_retainedtopic_cb cb);
 
 bool MQTT_local_publish(uint8_t* topic, uint8_t* data, uint16_t data_length, uint8_t qos, uint8_t retain);
 bool MQTT_local_subscribe(uint8_t* topic, uint8_t qos);

@@ -24,6 +24,12 @@ uMQTTBroker *uMQTTBroker::TheBroker;
 	TheBroker->onData((String)topic_str, data, length);
     }
 
+    void uMQTTBroker::onRetain(retained_entry *topic){
+      #ifdef MQTT_RETAIN_PERSISTANCE
+      save_retainedtopics();
+      #endif
+    }
+
     uMQTTBroker::uMQTTBroker(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics) {
 	TheBroker = this;
 	_portno = portno;
@@ -34,6 +40,7 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     MQTT_server_onDisconnect(_onDisconnect);
 	MQTT_server_onAuth(_onAuth);
 	MQTT_server_onData(_onData);
+    MQTT_server_onRetain(uMQTTBroker::onRetain);
     }
 
     void uMQTTBroker::init() {

@@ -44,8 +44,8 @@ MQTT_ClientCon dummy_clientcon;
 #define MQTT_WARNING printf //ME
 #define MQTT_ERROR printf
 
-#define MAX_CLIENTS 5
-myclientcon *myclientcons[MAX_CLIENTS]={ NULL };
+#define MAX_CLIENTS 8
+myclientcon *myclientcons[MAX_CLIENTS]={ NULL };//use chained-list like for clientcon_list?..
 WiFiServer *pserver;
 
 static int get_client_id(WiFiClient client){
@@ -1038,6 +1038,9 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
     if (!create_retainedlist(max_retained_topics))
 	return false;
     clientcon_list = NULL;
+	#ifdef MQTT_RETAIN_PERSISTANCE
+      load_retainedtopics();
+    #endif
 	
     dummy_clientcon.connState = TCP_DISCONNECT;
 	
@@ -1076,4 +1079,8 @@ void ICACHE_FLASH_ATTR MQTT_server_onDisconnect(MqttDisconnectCallback disconnec
 
 void ICACHE_FLASH_ATTR MQTT_server_onAuth(MqttAuthCallback authCb) {
     local_auth_cb = authCb;
+}
+
+void ICACHE_FLASH_ATTR MQTT_server_onRetain(on_retainedtopic_cb cb) {
+    set_on_retainedtopic_cb(cb);
 }

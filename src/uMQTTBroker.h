@@ -82,7 +82,7 @@ public:
     virtual void onDisconnect(IPAddress addr, String client_id);
     virtual bool onAuth(String username, String password, String client_id);
     virtual void onData(String topic, const char *data, uint32_t length);
-
+    static void onRetain(retained_entry *topic);
 // Infos on currently connected clients
 
     virtual uint16_t getClientCount();

@@ -9,6 +9,7 @@
 
 #include "mqtt/mqtt_retainedlist.h"
 #include "mqtt/mqtt_topics.h"
+#include "mqtt/config_flash.h"
 
 static retained_entry *retained_list = NULL;
 static uint16_t max_entry;
@@ -139,7 +140,6 @@ void ICACHE_FLASH_ATTR clear_retainedtopics() {
 int ICACHE_FLASH_ATTR serialize_retainedtopics(char *buf, int len) {
     uint16_t i;
     uint16_t pos = 0;
-
     if (retained_list == NULL)
 	return 0;
 
@@ -163,13 +163,11 @@ int ICACHE_FLASH_ATTR serialize_retainedtopics(char *buf, int len) {
     if (pos == 0) {
 	buf[pos++] = '\0';
     }
-
     return pos;
 }
 
 bool ICACHE_FLASH_ATTR deserialize_retainedtopics(char *buf, int len) {
     uint16_t pos = 0;
-
     while (pos < len && buf[pos] != '\0') {
 	uint8_t *topic = (uint8_t *)&buf[pos];
 	pos += os_strlen((char *)topic) + 1;
@@ -189,3 +187,43 @@ bool ICACHE_FLASH_ATTR deserialize_retainedtopics(char *buf, int len) {
 void ICACHE_FLASH_ATTR set_on_retainedtopic_cb(on_retainedtopic_cb cb) {
     retained_cb = cb;
 }
+
+
+bool ICACHE_FLASH_ATTR save_retainedtopics() {
+#ifdef MQTT_RETAIN_PERSISTANCE
+      uint8_t buffer[MAX_RETAINED_LEN];
+      int len = sizeof(buffer);
+      len = serialize_retainedtopics((char *)buffer, len);
+	  DEBUG("RetainedTopic-Buffer to flash");
+	  DEBUG_B(buffer, len);
+      if (len) {
+        blob_save((uint32_t *)buffer, len);
+		//DEBUG("Test reloading from flash");
+		//int len2 = sizeof(buffer);
+		//uint8_t buffer2[MAX_RETAINED_LEN];
+		//blob_load((uint32_t *)buffer2, len2);		
+		//DEBUG_B(buffer2, len);
+        return true;
+      }
+#endif
+      return false;
+  }
+  
+bool ICACHE_FLASH_ATTR load_retainedtopics() {
+#ifdef MQTT_RETAIN_PERSISTANCE
+	  set_retain_flash_sector();
+      uint8_t buffer[MAX_RETAINED_LEN];
+      int len = sizeof(buffer);
+      blob_load((uint32_t *)buffer, len);
+	  DEBUG("RetainedTopic-Buffer from flash");
+	  DEBUG_B(buffer, len);
+      return deserialize_retainedtopics((char*)buffer, len);
+#else
+	  return false;
+#endif
+	 
+  }
+
+
+
+
