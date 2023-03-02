@@ -40,8 +40,8 @@ LOCAL MqttAuthCallback local_auth_cb = NULL;
 
 MQTT_ClientCon dummy_clientcon;
 //#undef MQTT_INFO
-//#define MQTT_INFO os_printf
-#define MQTT_WARNING printf //ME
+//#define MQTT_INFO Serial.printf
+#define MQTT_WARNING printf
 #define MQTT_ERROR printf
 
 #define MAX_CLIENTS 8
@@ -61,16 +61,14 @@ static int get_client_id(WiFiClient client){
 static int add_new_client(WiFiClient client){
   for (int i=0 ; i<MAX_CLIENTS ; ++i) {
         if (NULL == myclientcons[i]) {             
-          Serial.print("Add client: ");
-          //myclientcons[i] = (_myclientcon*) os_zalloc(sizeof(_myclientcon));  
-          myclientcons[i] = (_myclientcon*) calloc(1,sizeof(_myclientcon));
+          MQTT_INFO("Add client: %d",i);
+          myclientcons[i] = (_myclientcon*) os_zalloc(sizeof(_myclientcon));  
           myclientcons[i]->client = new WiFiClient(client);
 		  MQTT_ClientCon_connected_cb(myclientcons[i]);
-          Serial.println(i);
           return i;
         }
     }
-  Serial.println("Max clients reached");
+  MQTT_INFO("Max clients reached\r\n\n");
   client.stop();
   return -1;
 }
@@ -78,7 +76,7 @@ static int add_new_client(WiFiClient client){
 static void ICACHE_FLASH_ATTR Network_server_loop(){
   WiFiClient client = pserver->available();
   if (client) {// client is true only if it is connected and has data to read
-    Serial.println("new client connectec");
+    MQTT_INFO("new client detected\n");
     int idx_client=get_client_id(client);     
     if (idx_client<0){
       client.setTimeout(30);
@@ -90,24 +88,22 @@ static void ICACHE_FLASH_ATTR Network_server_loop(){
 }
 static void ICACHE_FLASH_ATTR Network_clients_loop(){
   for (int i=0 ; i<MAX_CLIENTS ; ++i) {
-    if (myclientcons[i]!=NULL){      
-	  if (myclientcons[i]->client->connected()==false) {        //Remove unconnected-clients    
-            MQTT_ClientCon_discon_cb(myclientcons[i]);
-            //os_free(myclientcons[i]);
-            Serial.print("Free client: ");
-            Serial.println(sizeof(myclientcons[i]));
-            delete(myclientcons[i]->client);
-            free(myclientcons[i]);
-            myclientcons[i]=NULL;
-        }
-	 else{//Read data and trigger callbacks from connected clients
-		size_t len =myclientcons[i]->client->available();    
-      	if(len>1){ 
+    if (myclientcons[i]!=NULL){  
+	  //Read data and trigger callbacks
+	  size_t len =myclientcons[i]->client->available();    
+      if(len>1){ 
           uint8_t buf[1024];     
           myclientcons[i]->client->read(buf, len);
           MQTT_ClientCon_recv_cb(myclientcons[i],(char *)&buf, len); 
-      	}
-	 } 
+      }	   
+	  if (myclientcons[i]->client->connected()==false) {        //Remove unconnected-clients    
+            MQTT_ClientCon_discon_cb(myclientcons[i]);
+            //os_free(myclientcons[i]);
+            MQTT_INFO("Free client");
+            delete(myclientcons[i]->client);
+            os_free(myclientcons[i]);
+            myclientcons[i]=NULL;
+        }
     }
   }
 }
@@ -361,18 +357,30 @@ void ICACHE_FLASH_ATTR MQTT_server_disconnectClientCon(MQTT_ClientCon * mqttClie
     MQTT_server_deleteClientCon(mqttClientCon);
     system_os_post(MQTT_SERVER_TASK_PRIO, 0, (os_param_t) &dummy_clientcon);
 }
+/*
+void ICACHE_FLASH_ATTR mqtt_send_timer(void *arg){
+	MQTT_ClientCon *clientcon = (MQTT_ClientCon *) arg;
+	if (clientcon->sendTimeout > 0){
+		clientcon->sendTimeout--;
+		system_os_post(MQTT_SERVER_TASK_PRIO, 0, (os_param_t) mqttClientCon);
+	}
+	else{
+		os_timer_disarm(&mqttClientCon->mqttTimer2);	
+	}
 
+}
+*/
 void ICACHE_FLASH_ATTR mqtt_server_timer(void *arg) {
     MQTT_ClientCon *clientcon = (MQTT_ClientCon *) arg;
 
-    if (clientcon->sendTimeout > 0)
+    if (clientcon->sendTimeout > 0)//TODO: Handling for clientcon->sendTimeout<0 is missing?
 	clientcon->sendTimeout--;
 
     if (clientcon->connectionTimeout > 0) {
 	clientcon->connectionTimeout--;
     } else {
         MQTT_WARNING("MQTT: Connection timeout %ds\r\n", 2*clientcon->connect_info.keepalive+10);
-	MQTT_server_disconnectClientCon(clientcon);
+		MQTT_server_disconnectClientCon(clientcon);
     }
 }
 
@@ -929,8 +937,7 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_sent_cb(void *arg) {
     struct _myclientcon *pCon = (struct _myclientcon *)arg;
     MQTT_ClientCon *clientcon = (MQTT_ClientCon *) pCon->reverse;
 
-    MQTT_INFO("MQTT_ClientCon_sent_cb(): Data sent\r\n");
-
+    MQTT_INFO("MQTT_ClientCon_sent_cb(): Data sent to %s \r\n",clientcon->connect_info.client_id);
     clientcon->sendTimeout = 0;
 
     if (clientcon->connState == TCP_DISCONNECTING) {
@@ -946,7 +953,7 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_connected_cb(void *arg) {
     MQTT_ClientCon *mqttClientCon;
     pespconn->reverse = NULL;
 
-    Serial.print("MQTT_ClientCon_connected_cb(): Client connected\r\n");
+    DEBUG("MQTT_ClientCon_connected_cb(): Client connected\r\n");
 
     //espconn_regist_sentcb(pespconn, MQTT_ClientCon_sent_cb);
     //espconn_regist_disconcb(pespconn, MQTT_ClientCon_discon_cb);
@@ -997,7 +1004,12 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 	if (clientcon->pCon != NULL)
 	    //espconn_disconnect(clientcon->pCon);
 		clientcon->pCon->client->stop();
-
+	//FIX-FOR: If the last network-package included an PUBLISH+DISCONNECT message,
+	//then only DISCONNECT is treated at the end of MQTT_ClientCon_recv_cb, which triggers server_task. 
+	//The previous message is however not handled immediatelly. It is handled once activate_next_client is called e.g. PING.
+	//Script to reproduce issue: ../test/mqtt_test.sh. Note the test can not repoduce the issue with original, esp_conn-callbacks as 
+	//the two messages are probably separated 
+	activate_next_client();
 	break;
 
     case TCP_DISCONNECTING:
@@ -1012,10 +1024,22 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 	    MQTT_INFO("MQTT: Sending, type: %d, id: %04X\r\n", clientcon->mqtt_state.pending_msg_type,
 		      clientcon->mqtt_state.pending_msg_id);
 	    //espconn_send(clientcon->pCon, dataBuffer, dataLen);
-		//if(clientcon->pCon->client->availableForWrite()){
-		clientcon->pCon->client->write(dataBuffer, dataLen);
-		MQTT_ClientCon_sent_cb(clientcon->pCon);
-		//}	
+		uint16_t sendBufferLen=clientcon->pCon->client->availableForWrite();
+		if(dataLen < sendBufferLen){
+			clientcon->pCon->client->write(dataBuffer, dataLen);
+			MQTT_ClientCon_sent_cb(clientcon->pCon);
+			MQTT_WARNING("MQTT: databuffer %u is larger than available byte write %u",sendBufferLen,dataLen);			
+		}
+		else{
+			MQTT_WARNING("MQTT: databuffer %u is larger than available byte write %u.",sendBufferLen,dataLen);
+			MQTT_WARNING("MQTT: Msg is not send, this is QOS 0 behaviour?");
+			DEBUG("MQTT: available for write");
+			DEBUG_u32(clientcon->pCon->client->availableForWrite());
+			//Assuming bad ESP connection 25kByte/s and MessageSize of 1kB=>~40ms to clear sndbuffer in one connection
+			//TODO Use this? does QUEUE_Gets empty quee already?
+			//os_timer_setfn(&mqttClientCon->sendTimer, (os_timer_func_t *) mqtt_send_timer, mqttClientCon);
+			//os_timer_arm(&mqttClientCon->sendTimer, 50, 1);	
+		}
 		
 	    clientcon->mqtt_state.outbound_message = NULL;
 	    break;
