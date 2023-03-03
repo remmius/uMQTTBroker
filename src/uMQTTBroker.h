@@ -71,7 +71,7 @@ private:
     static void _onData(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t length);
 
 public:
-    uMQTTBroker(uint16_t portno=8883, uint16_t max_subscriptions=30, uint16_t max_retained_topics=30);
+    uMQTTBroker(uint16_t portno=1883, uint16_t max_subscriptions=30, uint16_t max_retained_topics=30);
 
     void init();
     void loop();

@@ -17,7 +17,6 @@ extern "C" {
 #include <ESP8266WiFi.h>
 typedef struct _myclientcon {
    WiFiClient *client;
-   //BearSSL::WiFiClientSecure *client;
    void *reverse; 
  } myclientcon;
 

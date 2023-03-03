@@ -45,80 +45,58 @@ MQTT_ClientCon dummy_clientcon;
 #define MQTT_ERROR printf
 
 #define MAX_CLIENTS 5
-#define MAX_TLS_CLIENTS 1
+
 myclientcon *myclientcons[MAX_CLIENTS]={ NULL };//use chained-list like for clientcon_list?..
 WiFiServer *pserver;
 #ifdef MQTT_TLS_ON
+#define MAX_TLS_CLIENTS 1
 extern "C" void stack_thunk_dump_stack();
-BearSSL::WiFiServerSecure *pserver;
+BearSSL::WiFiServerSecure *pserver_TLS;
 BearSSL::ServerSessions serverCache(MAX_TLS_CLIENTS);
-const char server_cert[] PROGMEM = R"EOF(
------BEGIN CERTIFICATE-----
-MIIBpjCCAUwCFFzxsEk1PAFzm4urmnR/Pq8ZI67FMAoGCCqGSM49BAMCMFUxCzAJ
-BgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5l
-dCBXaWRnaXRzIFB0eSBMdGQxDjAMBgNVBAMMBW15LWNhMB4XDTIzMDMwMzEzMTIw
-M1oXDTI1MTEyNzEzMTIwM1owVjELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUt
-U3RhdGUxITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDEPMA0GA1UE
-AwwGYnJva2VyMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFoDg6JZ29XeOcwiP
-qs6/NTKHxRkzD7gEsSm7b4i4aztZo6kXfkI0kVq6iZnuG2Vv2m4G2NlbN85xXBhj
-OxJG3zAKBggqhkjOPQQDAgNIADBFAiAzx9s6k66E2lSRNVVMyFkU8HQ+jljfrvoU
-H/6beXuZDwIhAIkrGv1RIpoj1b5st5XnUmDIPuhmyyw9TMeXiYBV1swH
------END CERTIFICATE-----
-)EOF";
-
-// The server's private key which must be kept secret
-const char server_private_key[] PROGMEM = R"EOF(
------BEGIN EC PRIVATE KEY-----
-MHcCAQEEIFc/KRMD73CSJjWMwytDAbmX0mtTNhBxikkMVHY6uTmsoAoGCCqGSM49
-AwEHoUQDQgAEFoDg6JZ29XeOcwiPqs6/NTKHxRkzD7gEsSm7b4i4aztZo6kXfkI0
-kVq6iZnuG2Vv2m4G2NlbN85xXBhjOxJG3w==
------END EC PRIVATE KEY-----
-)EOF";
-
+#include "certs/server_cert.h"
+#include "certs/server_key.h"
 #endif
 
-//static int get_client_id(WiFiClient client){
-static int get_client_id(BearSSL::WiFiClientSecure client){
-  for (int i=0 ; i<MAX_CLIENTS ; ++i) {
+static int get_client_id(WiFiClient *client){
+	  for (int i=0 ; i<MAX_CLIENTS ; ++i) {
     if (NULL != myclientcons[i]) {
-      if(client.remotePort()==myclientcons[i]->client->remotePort() && client.remoteIP()==myclientcons[i]->client->remoteIP()){
+      if(client->remotePort()==myclientcons[i]->client->remotePort() && client->remoteIP()==myclientcons[i]->client->remoteIP()){
        return i;
       }        
     }
   }
   return -1;
 }
-//static int add_new_client(WiFiClient client){
-static int add_new_client(BearSSL::WiFiClientSecure client){
-  for (int i=0 ; i<MAX_CLIENTS ; ++i) {
+
+static int add_new_client(WiFiClient *client,bool Secure_client){
+	for (int i=0 ; i<MAX_CLIENTS ; ++i) {
         if (NULL == myclientcons[i]) {             
           MQTT_INFO("Add client: %d",i);
-          myclientcons[i] = (_myclientcon*) os_zalloc(sizeof(_myclientcon));  
-          //myclientcons[i]->client = new WiFiClient(client);
-		  myclientcons[i]->client = new BearSSL::WiFiClientSecure(client);
+          myclientcons[i] = (_myclientcon*) os_zalloc(sizeof(_myclientcon)); 
+		  if(Secure_client==true){
+			myclientcons[i]->client = new BearSSL::WiFiClientSecure(*(BearSSL::WiFiClientSecure*)client);
+		  }
+		  else{
+			myclientcons[i]->client = new WiFiClient(*client);
+		  }
 		  MQTT_ClientCon_connected_cb(myclientcons[i]);
           return i;
         }
     }
   MQTT_INFO("Max clients reached\r\n\n");
-  client.stop();
+  client->stop();
   return -1;
 }
 
-static void ICACHE_FLASH_ATTR Network_server_loop(){
-  //WiFiClient client = pserver->available();
-  BearSSL::WiFiClientSecure client = pserver->available();
-  if (client) {// client is true only if it is connected and has data to read
-    MQTT_INFO("new client detected\n");
-    int idx_client=get_client_id(client);     
+static void ICACHE_FLASH_ATTR Network_server_loop(WiFiClient *pclient,bool Secure_client){
+    MQTT_INFO("New client detected\n");
+    int idx_client=get_client_id(pclient);     
     if (idx_client<0){
-      client.setTimeout(30);
-      if(add_new_client(client)==-1){
-        client.stop();//disconnect client
-      }
+      pclient->setTimeout(30);
+      add_new_client(pclient,Secure_client);
     }
-  }
 }
+
 static void ICACHE_FLASH_ATTR Network_clients_loop(){
   for (int i=0 ; i<MAX_CLIENTS ; ++i) {
     if (myclientcons[i]!=NULL){  
@@ -142,7 +120,24 @@ static void ICACHE_FLASH_ATTR Network_clients_loop(){
 }
 
 void ICACHE_FLASH_ATTR MQTT_network_loop(){
-  Network_server_loop();
+  {
+	WiFiClient client = pserver->available();
+	if(client){// client is true only if it is connected and has data to read
+		WiFiClient *pclient;
+		pclient= &client;
+		Network_server_loop(&client,false);
+	}
+  }
+  #ifdef MQTT_TLS_ON
+  {
+    BearSSL::WiFiClientSecure client = pserver_TLS->available();//Cast SecureClient to Client
+    if(client){// client is true only if it is connected and has data to read
+		BearSSL::WiFiClientSecure *pclient;
+    	pclient= &client;
+    	Network_server_loop(&client,true);
+	}
+  }
+  #endif
   Network_clients_loop();
 }
 
@@ -1086,15 +1081,18 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 
 bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics) {
     MQTT_INFO("Starting MQTT server on port %d\r\n", portno);
-	//pserver = new WiFiServer(portno);  // set port here
-	pserver = new BearSSL::WiFiServerSecure(portno);
+	pserver = new WiFiServer(portno);  // set port here
+	pserver->begin();
+	#ifdef MQTT_TLS_ON
+	MQTT_INFO("Starting MQTT server_TLS on port %d\r\n", 8883);
+	pserver_TLS = new BearSSL::WiFiServerSecure(8883);
 	BearSSL::X509List *serverCertList = new BearSSL::X509List(server_cert);
     BearSSL::PrivateKey *serverPrivKey = new BearSSL::PrivateKey(server_private_key);
-	pserver->setECCert(serverCertList, BR_KEYTYPE_KEYX | BR_KEYTYPE_EC, serverPrivKey);
+	pserver_TLS->setECCert(serverCertList, BR_KEYTYPE_KEYX | BR_KEYTYPE_EC, serverPrivKey);
 	// Cache SSL sessions to accelerate the TLS handshake.
-    pserver->setCache(&serverCache);
-	pserver->begin();
-	
+    pserver_TLS->setCache(&serverCache);
+	pserver_TLS->begin();
+	#endif
     if (!create_topiclist(max_subscriptions))
 	return false;
     if (!create_retainedlist(max_retained_topics))
@@ -1103,8 +1101,6 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
 	#ifdef MQTT_RETAIN_PERSISTANCE
       load_retainedtopics();
     #endif
-
-
 
     dummy_clientcon.connState = TCP_DISCONNECT;
 	
