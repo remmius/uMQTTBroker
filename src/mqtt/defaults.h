@@ -14,7 +14,7 @@
 #endif
 
 #ifndef QUEUE_BUFFER_SIZE
-#define QUEUE_BUFFER_SIZE 2048
+#define QUEUE_BUFFER_SIZE 1024
 #endif
 
 #ifndef MQTT_KEEPALIVE

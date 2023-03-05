@@ -8,6 +8,8 @@ extern "C"{
 }
 #include "mqtt/mqtt_topiclist.h"
 #include "mqtt/debug.h"
+//use sessions in client
+//
 
 // Mem Debug
 // #undef os_free
@@ -44,12 +46,13 @@ MQTT_ClientCon dummy_clientcon;
 #define MQTT_WARNING printf
 #define MQTT_ERROR printf
 
-#define MAX_CLIENTS 5
+#define MAX_CLIENTS 8
 
 myclientcon *myclientcons[MAX_CLIENTS]={ NULL };//use chained-list like for clientcon_list?..
 WiFiServer *pserver;
 #ifdef MQTT_TLS_ON
 #define MAX_TLS_CLIENTS 1
+#define MQTT_TLS_BUFFER_SIZE MQTT_BUF_SIZE
 extern "C" void stack_thunk_dump_stack();
 BearSSL::WiFiServerSecure *pserver_TLS;
 BearSSL::ServerSessions serverCache(MAX_TLS_CLIENTS);
@@ -68,23 +71,23 @@ static int get_client_id(WiFiClient *client){
   return -1;
 }
 
-static int add_new_client(WiFiClient *client,bool Secure_client){
+static int add_new_client(WiFiClient *pclient,bool Secure_client){
 	for (int i=0 ; i<MAX_CLIENTS ; ++i) {
         if (NULL == myclientcons[i]) {             
           MQTT_INFO("Add client: %d",i);
           myclientcons[i] = (_myclientcon*) os_zalloc(sizeof(_myclientcon)); 
 		  if(Secure_client==true){
-			myclientcons[i]->client = new BearSSL::WiFiClientSecure(*(BearSSL::WiFiClientSecure*)client);
+			myclientcons[i]->client = new BearSSL::WiFiClientSecure(*(BearSSL::WiFiClientSecure*)pclient);
 		  }
 		  else{
-			myclientcons[i]->client = new WiFiClient(*client);
+			myclientcons[i]->client = new WiFiClient(*pclient);
 		  }
 		  MQTT_ClientCon_connected_cb(myclientcons[i]);
           return i;
         }
     }
   MQTT_INFO("Max clients reached\r\n\n");
-  client->stop();
+  pclient->stop();
   return -1;
 }
 
@@ -103,7 +106,7 @@ static void ICACHE_FLASH_ATTR Network_clients_loop(){
 	  //Read data and trigger callbacks
 	  size_t len =myclientcons[i]->client->available();    
       if(len>1){ 
-          uint8_t buf[1024];     
+          uint8_t buf[MQTT_BUF_SIZE];     
           myclientcons[i]->client->read(buf, len);
           MQTT_ClientCon_recv_cb(myclientcons[i],(char *)&buf, len); 
       }	   
@@ -123,8 +126,6 @@ void ICACHE_FLASH_ATTR MQTT_network_loop(){
   {
 	WiFiClient client = pserver->available();
 	if(client){// client is true only if it is connected and has data to read
-		WiFiClient *pclient;
-		pclient= &client;
 		Network_server_loop(&client,false);
 	}
   }
@@ -132,8 +133,8 @@ void ICACHE_FLASH_ATTR MQTT_network_loop(){
   {
     BearSSL::WiFiClientSecure client = pserver_TLS->available();//Cast SecureClient to Client
     if(client){// client is true only if it is connected and has data to read
-		BearSSL::WiFiClientSecure *pclient;
-    	pclient= &client;
+		//BearSSL::Session session;
+  		//client.setSession(&session);
     	Network_server_loop(&client,true);
 	}
   }
@@ -1058,10 +1059,10 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 			MQTT_ClientCon_sent_cb(clientcon->pCon);			
 		}
 		else{
-			MQTT_WARNING("MQTT: databuffer %u is larger than available byte write %u.",sendBufferLen,dataLen);
+			MQTT_WARNING("MQTT: databuffer %u is larger than available byte write %u.",dataLen,sendBufferLen);
 			MQTT_WARNING("MQTT: Msg is not send, this is QOS 0 behaviour?");
 			DEBUG("MQTT: available for write");
-			DEBUG_u32(clientcon->pCon->client->availableForWrite());
+			DEBUG_u32((u_int32_t)clientcon->pCon->client->availableForWrite());
 			//Assuming bad ESP connection 25kByte/s and MessageSize of 1kB=>~40ms to clear sndbuffer in one connection
 			//TODO Use this? does QUEUE_Gets empty quee already?
 			//os_timer_setfn(&mqttClientCon->sendTimer, (os_timer_func_t *) mqtt_send_timer, mqttClientCon);
@@ -1091,6 +1092,9 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
 	pserver_TLS->setECCert(serverCertList, BR_KEYTYPE_KEYX | BR_KEYTYPE_EC, serverPrivKey);
 	// Cache SSL sessions to accelerate the TLS handshake.
     pserver_TLS->setCache(&serverCache);
+	pserver_TLS->setSSLVersion(BR_TLS12, BR_TLS12);
+	pserver_TLS->setBufferSizes(MQTT_TLS_BUFFER_SIZE, MQTT_TLS_BUFFER_SIZE);//1024 allows roughly ~955byte payload+1byte topic with TLS1.2 (40byte)
+	//512 results in cert error
 	pserver_TLS->begin();
 	#endif
     if (!create_topiclist(max_subscriptions))
