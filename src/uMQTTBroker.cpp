@@ -1,7 +1,6 @@
 
 #include "uMQTTBroker.h"
 
-//TODO remove send timeout/sent callback
 uMQTTBroker *uMQTTBroker::TheBroker;
 
     bool uMQTTBroker::_onConnect(struct _myclientcon *pesp_conn, uint16_t client_count) {
@@ -13,7 +12,7 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     }
 
     bool uMQTTBroker::_onAuth(const char* username, const char *password, const char* client_id, struct _myclientcon *pesp_conn) {
-	return TheBroker->onAuth((String)username, (String)password, (String)client_id);
+    return TheBroker->onAuth((String)username, (String)password, (String)client_id,pesp_conn);
     }
 
     void uMQTTBroker::_onData(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t length) {
@@ -44,8 +43,15 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     }
 
     void uMQTTBroker::init() {
-	MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics);
+    MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics);
     }
+    #ifdef MQTT_TLS_ON    
+    void uMQTTBroker::init(uint16_t portno_TLS) {
+        _portno_TLS=portno_TLS;
+        MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics,_portno_TLS);
+    }
+    #endif
+    
 
     bool uMQTTBroker::onConnect(IPAddress addr, uint16_t client_count) {
 	return true;
@@ -55,7 +61,7 @@ uMQTTBroker *uMQTTBroker::TheBroker;
 	return;
     }
 
-    bool uMQTTBroker::onAuth(String username, String password, String client_id) {
+    bool uMQTTBroker::onAuth(String username, String password, String client_id,struct _myclientcon *pesp_conn) {
 	return true;
     }
 

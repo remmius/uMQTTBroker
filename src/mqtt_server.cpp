@@ -1079,24 +1079,11 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 	break;
     }
 }
-
 bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics) {
     MQTT_INFO("Starting MQTT server on port %d\r\n", portno);
 	pserver = new WiFiServer(portno);  // set port here
 	pserver->begin();
-	#ifdef MQTT_TLS_ON
-	MQTT_INFO("Starting MQTT server_TLS on port %d\r\n", 8883);
-	pserver_TLS = new BearSSL::WiFiServerSecure(8883);
-	BearSSL::X509List *serverCertList = new BearSSL::X509List(server_cert);
-    BearSSL::PrivateKey *serverPrivKey = new BearSSL::PrivateKey(server_private_key);
-	pserver_TLS->setECCert(serverCertList, BR_KEYTYPE_KEYX | BR_KEYTYPE_EC, serverPrivKey);
-	// Cache SSL sessions to accelerate the TLS handshake.
-    pserver_TLS->setCache(&serverCache);
-	pserver_TLS->setSSLVersion(BR_TLS12, BR_TLS12);
-	pserver_TLS->setBufferSizes(MQTT_TLS_BUFFER_SIZE, MQTT_TLS_BUFFER_SIZE);//1024 allows roughly ~955byte payload+1byte topic with TLS1.2 (40byte)
-	//512 results in cert error
-	pserver_TLS->begin();
-	#endif
+	
     if (!create_topiclist(max_subscriptions))
 	return false;
     if (!create_retainedlist(max_retained_topics))
@@ -1111,6 +1098,27 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
     system_os_task(MQTT_ServerTask, MQTT_SERVER_TASK_PRIO, mqtt_procServerTaskQueue, MQTT_TASK_QUEUE_SIZE);
     return true;
 }
+
+bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics,uint16_t portno_TLS) {
+	#ifdef MQTT_TLS_ON
+	if(portno_TLS>0){
+		MQTT_INFO("Starting MQTT server_TLS on port %d\r\n",portno_TLS);
+		pserver_TLS = new BearSSL::WiFiServerSecure(portno_TLS);
+		BearSSL::X509List *serverCertList = new BearSSL::X509List(server_cert);
+		BearSSL::PrivateKey *serverPrivKey = new BearSSL::PrivateKey(server_private_key);
+		pserver_TLS->setECCert(serverCertList, BR_KEYTYPE_KEYX | BR_KEYTYPE_EC, serverPrivKey);
+		// Cache SSL sessions to accelerate the TLS handshake.
+		pserver_TLS->setCache(&serverCache);
+		pserver_TLS->setSSLVersion(BR_TLS12, BR_TLS12);
+		pserver_TLS->setBufferSizes(MQTT_TLS_BUFFER_SIZE, MQTT_TLS_BUFFER_SIZE);//1024 allows roughly ~955byte payload+1byte topic with TLS1.2 (40byte)
+		//512 results in cert error
+		pserver_TLS->begin();
+	}
+	else{MQTT_INFO("No valid TLS-port: %d specified.\r\n",portno_TLS);}
+	#endif
+	return MQTT_server_start(portno, max_subscriptions, max_retained_topics);
+}
+
 
 bool ICACHE_FLASH_ATTR MQTT_local_publish(uint8_t * topic, uint8_t * data, uint16_t data_length, uint8_t qos,
 					  uint8_t retain) {

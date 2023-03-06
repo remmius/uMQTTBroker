@@ -66,6 +66,9 @@ bool MQTT_server_deleteClientCon(MQTT_ClientCon *mqttClientCon);
 void MQTT_server_cleanupClientCons();
 
 bool MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics);
+#ifdef MQTT_TLS_ON
+bool MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics,uint16_t portno_TLS);
+#endif
 void MQTT_server_onConnect(MqttConnectCallback connectCb);
 void MQTT_server_onDisconnect(MqttDisconnectCallback disconnectCb);
 void MQTT_server_onAuth(MqttAuthCallback authCb);

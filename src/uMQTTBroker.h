@@ -62,6 +62,9 @@ class uMQTTBroker
 private:
     static uMQTTBroker *TheBroker;
     uint16_t _portno;
+    #ifdef MQTT_TLS_ON
+    uint16_t _portno_TLS;
+    #endif
     uint16_t _max_subscriptions;
     uint16_t _max_retained_topics;
 
@@ -72,15 +75,17 @@ private:
 
 public:
     uMQTTBroker(uint16_t portno=1883, uint16_t max_subscriptions=30, uint16_t max_retained_topics=30);
-
     void init();
+    #ifdef MQTT_TLS_ON
+    void init(uint16_t portno_TLS);
+    #endif    
     void loop();
 
 // Callbacks on client actions
 
     virtual bool onConnect(IPAddress addr, uint16_t client_count);
     virtual void onDisconnect(IPAddress addr, String client_id);
-    virtual bool onAuth(String username, String password, String client_id);
+    virtual bool onAuth(String username, String password, String client_id,struct _myclientcon *pesp_conn);
     virtual void onData(String topic, const char *data, uint32_t length);
     static void onRetain(retained_entry *topic);
 // Infos on currently connected clients
