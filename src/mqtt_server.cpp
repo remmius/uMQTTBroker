@@ -386,19 +386,19 @@ void ICACHE_FLASH_ATTR MQTT_server_disconnectClientCon(MQTT_ClientCon * mqttClie
     MQTT_server_deleteClientCon(mqttClientCon);
     system_os_post(MQTT_SERVER_TASK_PRIO, 0, (os_param_t) &dummy_clientcon);
 }
-/*
+
 void ICACHE_FLASH_ATTR mqtt_send_timer(void *arg){
 	MQTT_ClientCon *clientcon = (MQTT_ClientCon *) arg;
 	if (clientcon->sendTimeout > 0){
 		clientcon->sendTimeout--;
-		system_os_post(MQTT_SERVER_TASK_PRIO, 0, (os_param_t) mqttClientCon);
+		system_os_post(MQTT_SERVER_TASK_PRIO, 0, (os_param_t) clientcon);
 	}
 	else{
-		os_timer_disarm(&mqttClientCon->mqttTimer2);	
+		os_timer_disarm(&clientcon->sendTimer);	
 	}
 
 }
-*/
+
 void ICACHE_FLASH_ATTR mqtt_server_timer(void *arg) {
     MQTT_ClientCon *clientcon = (MQTT_ClientCon *) arg;
 
@@ -1043,35 +1043,43 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 
     case TCP_DISCONNECTING:
     case MQTT_DATA:
+	uint16_t sendBufferLenMax=clientcon->pCon->client->availableForWrite();
+	uint16_t sendBufferLen=min((uint16_t)MQTT_BUF_SIZE,sendBufferLenMax);
+
 	if (!QUEUE_IsEmpty(&clientcon->msgQueue) && clientcon->sendTimeout == 0 &&
-	    QUEUE_Gets(&clientcon->msgQueue, dataBuffer, &dataLen, MQTT_BUF_SIZE) == 0) {
-
-	    clientcon->mqtt_state.pending_msg_type = mqtt_get_type(dataBuffer);
-	    clientcon->mqtt_state.pending_msg_id = mqtt_get_id(dataBuffer, dataLen);
-
-	    clientcon->sendTimeout = MQTT_SEND_TIMOUT;
-	    MQTT_INFO("MQTT: Sending, type: %d, id: %04X\r\n", clientcon->mqtt_state.pending_msg_type,
-		      clientcon->mqtt_state.pending_msg_id);
-	    //espconn_send(clientcon->pCon, dataBuffer, dataLen);
-		uint16_t sendBufferLen=clientcon->pCon->client->availableForWrite();
-		if(dataLen < sendBufferLen){
+	    QUEUE_Gets(&clientcon->msgQueue, dataBuffer, &dataLen, sendBufferLen) == 0) {
+		if(clientcon->sendTimeout>0 && clientcon->sendTimeout < MQTT_SEND_TIMOUT){//Old, partial message handling
+			DEBUG("MQTT: Send partial message:\r\n");
 			clientcon->pCon->client->write(dataBuffer, dataLen);
 			MQTT_ClientCon_sent_cb(clientcon->pCon);			
+			if(QUEUE_IsEmpty(&clientcon->msgQueue)){
+				clientcon->mqtt_state.outbound_message = NULL;
+			}
+		}
+		else if(QUEUE_IsEmpty(&clientcon->msgQueue)){//New complete msg=>send complete msg
+			clientcon->mqtt_state.pending_msg_type = mqtt_get_type(dataBuffer);
+			clientcon->mqtt_state.pending_msg_id = mqtt_get_id(dataBuffer, dataLen);
+			DEBUG("msg send \n");
+			clientcon->sendTimeout = MQTT_SEND_TIMOUT;
+			MQTT_INFO("MQTT: Sending, type: %d, id: %04X\r\n", clientcon->mqtt_state.pending_msg_type,
+				clientcon->mqtt_state.pending_msg_id);
+			//espconn_send(clientcon->pCon, dataBuffer, dataLen);
+			clientcon->pCon->client->write(dataBuffer, dataLen);
+			MQTT_ClientCon_sent_cb(clientcon->pCon);
+			clientcon->mqtt_state.outbound_message = NULL;
 		}
 		else{
+			DEBUG("big msg \n");
 			MQTT_WARNING("MQTT: databuffer %u is larger than available byte write %u.",dataLen,sendBufferLen);
-			MQTT_WARNING("MQTT: Msg is not send, this is QOS 0 behaviour?");
+			MQTT_WARNING("MQTT: Partial msg is send");
 			DEBUG("MQTT: available for write");
 			DEBUG_u32((u_int32_t)clientcon->pCon->client->availableForWrite());
-			//Assuming bad ESP connection 25kByte/s and MessageSize of 1kB=>~40ms to clear sndbuffer in one connection
-			//TODO Use this? does QUEUE_Gets empty quee already?
-			//os_timer_setfn(&mqttClientCon->sendTimer, (os_timer_func_t *) mqtt_send_timer, mqttClientCon);
-			//os_timer_arm(&mqttClientCon->sendTimer, 50, 1);	
+			os_timer_setfn(&clientcon->sendTimer, (os_timer_func_t *) mqtt_send_timer, clientcon);
+			os_timer_arm(&clientcon->sendTimer, 50, 1);	
 		}
-		
-	    clientcon->mqtt_state.outbound_message = NULL;
 	    break;
 	} else {
+		MQTT_WARNING("MQTT: AAlready herer??\n");
 	    if (clientcon->connState == TCP_DISCONNECTING) {
 		MQTT_server_disconnectClientCon(clientcon);
 	    }
