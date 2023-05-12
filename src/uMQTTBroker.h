@@ -81,7 +81,7 @@ public:
 
     void init();
     #ifdef MQTT_TLS_ON
-    void init(uint16_t portno_TLS);
+    void init(uint16_t portno_TLS,const char *server_cert,const char *pCert,const char *pKey);
     #endif    
     void loop();
 

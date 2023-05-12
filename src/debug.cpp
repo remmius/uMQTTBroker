@@ -6,9 +6,6 @@ extern "C" {
 void Debug(const char *msg) {
   Serial.println(msg);
 }
-void Debug_u32(uint32_t msg) {
-  Serial.println(msg);
-}
 
 void Debug_b(uint8_t* buf, uint16_t len){
     uint16_t i;

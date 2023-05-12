@@ -24,9 +24,7 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     }
 
     void uMQTTBroker::onRetain(retained_entry *topic){
-      #ifdef MQTT_RETAIN_PERSISTANCE
       save_retainedtopics();
-      #endif
     }
 
     uMQTTBroker::uMQTTBroker(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics) {
@@ -45,14 +43,13 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     void uMQTTBroker::init() {
 	MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics);
     }
-    #ifdef MQTT_TLS_ON    
-    void uMQTTBroker::init(uint16_t portno_TLS) {
+    #ifdef MQTT_TLS_ON
+    void uMQTTBroker::init(uint16_t portno_TLS,const char *server_cert,const char *pCert,const char *pKey) {
         _portno_TLS=portno_TLS;
-        MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics,_portno_TLS);
+        MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics,_portno_TLS,pCert,pKey);
     }
     #endif
     
-
     bool uMQTTBroker::onConnect(IPAddress addr, uint16_t client_count) {
 	return true;
     }

@@ -52,12 +52,10 @@ myclientcon *myclientcons[MAX_CLIENTS]={ NULL };//TODO use chained-list like for
 WiFiServer *pserver;
 #ifdef MQTT_TLS_ON
 	#define MAX_TLS_CLIENTS 1
-	#define MQTT_TLS_BUFFER_SIZE MQTT_BUF_SIZE
+	#define MQTT_TLS_BUFFER_SIZE 2*MQTT_BUF_SIZE
 	extern "C" void stack_thunk_dump_stack();
 	BearSSL::WiFiServerSecure *pserver_TLS;
 	BearSSL::ServerSessions serverCache(MAX_TLS_CLIENTS);
-	#include "certs/server_cert.h"
-	#include "certs/server_key.h"
 #endif
 
 static int get_client_id(WiFiClient *client){
@@ -1061,10 +1059,8 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 		else{
 			MQTT_WARNING("MQTT: databuffer %u is larger than available byte write %u.",dataLen,sendBufferLen);
 			MQTT_WARNING("MQTT: Msg is not send, this is QOS 0 behaviour?");
-			DEBUG("MQTT: available for write");
-			DEBUG_u32((u_int32_t)clientcon->pCon->client->availableForWrite());
-			//Assuming bad ESP connection 25kByte/s and MessageSize of 1kB=>~40ms to clear sndbuffer in one connection
-			//TODO Use this? does QUEUE_Gets empty quee already?
+			MQTT_WARNING("MQTT: available for write %lu",clientcon->pCon->client->availableForWrite());
+			//TODO Use this? does QUEUE_Gets empty queue already? send in 2 messages?
 			//os_timer_setfn(&mqttClientCon->sendTimer, (os_timer_func_t *) mqtt_send_timer, mqttClientCon);
 			//os_timer_arm(&mqttClientCon->sendTimer, 50, 1);	
 		}
@@ -1090,7 +1086,7 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
 	return false;
     clientcon_list = NULL;
 	#ifdef MQTT_RETAIN_PERSISTANCE
-      load_retainedtopics();
+    	load_retainedtopics();
     #endif
 
     dummy_clientcon.connState = TCP_DISCONNECT;
@@ -1099,25 +1095,30 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
     return true;
 }
 
-bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics,uint16_t portno_TLS) {
-	#ifdef MQTT_TLS_ON
+bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics,uint16_t portno_TLS,const char *pCert,const char *pKey) {
+	bool res=false;
+	#ifdef MQTT_TLS_ON	
 	if(portno_TLS>0){
 		MQTT_INFO("Starting MQTT server_TLS on port %d\r\n",portno_TLS);
 		pserver_TLS = new BearSSL::WiFiServerSecure(portno_TLS);
-		BearSSL::X509List *serverCertList = new BearSSL::X509List(server_cert);
-		BearSSL::PrivateKey *serverPrivKey = new BearSSL::PrivateKey(server_private_key);
+		BearSSL::X509List *serverCertList = new BearSSL::X509List(pCert);//TODO add multiple cert/key-pairs
+		BearSSL::PrivateKey *serverPrivKey = new BearSSL::PrivateKey(pKey);
 		pserver_TLS->setECCert(serverCertList, BR_KEYTYPE_KEYX | BR_KEYTYPE_EC, serverPrivKey);
 		// Cache SSL sessions to accelerate the TLS handshake.
 		pserver_TLS->setCache(&serverCache);
 		pserver_TLS->setSSLVersion(BR_TLS12, BR_TLS12);
-		pserver_TLS->setBufferSizes(2*MQTT_TLS_BUFFER_SIZE, 2*MQTT_TLS_BUFFER_SIZE);
+		pserver_TLS->setBufferSizes(MQTT_TLS_BUFFER_SIZE, MQTT_TLS_BUFFER_SIZE);
 		//availableForWrite() returns min(BufferSize_recieve,BufferSize_send)/2
 		//512 results in cert error
 		pserver_TLS->begin();
+		res=true;
 	}
 	else{MQTT_INFO("No valid TLS-port: %d specified.\r\n",portno_TLS);}
 	#endif
-	return MQTT_server_start(portno, max_subscriptions, max_retained_topics);
+	if(portno>0){
+		return MQTT_server_start(portno, max_subscriptions, max_retained_topics);
+	}
+	else{return res;}
 }
 
 
