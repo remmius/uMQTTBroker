@@ -1,8 +1,7 @@
 #include <Arduino.h>
-extern "C" {
-  #include "mqtt/debug.h"
-}
-
+//extern "C" { 
+//}
+#include "mqtt/debug.h"
 void Debug(const char *msg) {
   Serial.println(msg);
 }
