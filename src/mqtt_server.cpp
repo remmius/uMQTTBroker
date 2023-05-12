@@ -51,22 +51,22 @@ MQTT_ClientCon dummy_clientcon;
 myclientcon *myclientcons[MAX_CLIENTS]={ NULL };//use chained-list like for clientcon_list?..
 WiFiServer *pserver;
 #ifdef MQTT_TLS_ON
-#define MAX_TLS_CLIENTS 1
-#define MQTT_TLS_BUFFER_SIZE MQTT_BUF_SIZE
-extern "C" void stack_thunk_dump_stack();
-BearSSL::WiFiServerSecure *pserver_TLS;
-BearSSL::ServerSessions serverCache(MAX_TLS_CLIENTS);
-#include "certs/server_cert.h"
-#include "certs/server_key.h"
+	#define MAX_TLS_CLIENTS 1
+	#define MQTT_TLS_BUFFER_SIZE MQTT_BUF_SIZE
+	extern "C" void stack_thunk_dump_stack();
+	BearSSL::WiFiServerSecure *pserver_TLS;
+	BearSSL::ServerSessions serverCache(MAX_TLS_CLIENTS);
+	#include "certs/server_cert.h"
+	#include "certs/server_key.h"
 #endif
 
 static int get_client_id(WiFiClient *client){
-	  for (int i=0 ; i<MAX_CLIENTS ; ++i) {
-    if (NULL != myclientcons[i]) {
-      if(client->remotePort()==myclientcons[i]->client->remotePort() && client->remoteIP()==myclientcons[i]->client->remoteIP()){
-       return i;
-      }        
-    }
+	for (int i=0 ; i<MAX_CLIENTS ; ++i) {
+		if (NULL != myclientcons[i]) {
+			if(client->remotePort()==myclientcons[i]->client->remotePort() && client->remoteIP()==myclientcons[i]->client->remoteIP()){
+				return i;
+			}        
+		}
   }
   return -1;
 }
@@ -85,10 +85,10 @@ static int add_new_client(WiFiClient *pclient,bool Secure_client){
 		  MQTT_ClientCon_connected_cb(myclientcons[i]);
           return i;
         }
-    }
-  MQTT_INFO("Max clients reached\r\n\n");
-  pclient->stop();
-  return -1;
+	}
+ 	MQTT_INFO("Max clients reached\r\n\n");
+  	pclient->stop();
+  	return -1;
 }
 
 static void ICACHE_FLASH_ATTR Network_server_loop(WiFiClient *pclient,bool Secure_client){
@@ -1036,8 +1036,8 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 	//FIX-FOR: If the last network-package included an PUBLISH+DISCONNECT message,
 	//then only DISCONNECT is treated at the end of MQTT_ClientCon_recv_cb, which triggers server_task. 
 	//The previous message is however not handled immediatelly. It is handled once activate_next_client is called e.g. PING.
-	//Script to reproduce issue: ../test/mqtt_test.sh. Note the test can not repoduce the issue with original, esp_conn-callbacks as 
-	//the two messages are probably separated 
+	//Script to reproduce issue: ../test/mqtt_test.sh. Note the test-case is not reproducible with original esp_conn-functions.
+	//The esp_conn-callbacks treats the two messages probably separated 
 	activate_next_client();
 	break;
 
@@ -1110,7 +1110,8 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
 		// Cache SSL sessions to accelerate the TLS handshake.
 		pserver_TLS->setCache(&serverCache);
 		pserver_TLS->setSSLVersion(BR_TLS12, BR_TLS12);
-		pserver_TLS->setBufferSizes(MQTT_TLS_BUFFER_SIZE, MQTT_TLS_BUFFER_SIZE);//1024 allows roughly ~955byte payload+1byte topic with TLS1.2 (40byte)
+		pserver_TLS->setBufferSizes(2*MQTT_TLS_BUFFER_SIZE, 2*MQTT_TLS_BUFFER_SIZE);
+		//availableForWrite() returns min(BufferSize_recieve,BufferSize_send)/2
 		//512 results in cert error
 		pserver_TLS->begin();
 	}

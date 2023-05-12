@@ -140,6 +140,7 @@ void ICACHE_FLASH_ATTR clear_retainedtopics() {
 int ICACHE_FLASH_ATTR serialize_retainedtopics(char *buf, int len) {
     uint16_t i;
     uint16_t pos = 0;
+
     if (retained_list == NULL)
 	return 0;
 
@@ -163,11 +164,13 @@ int ICACHE_FLASH_ATTR serialize_retainedtopics(char *buf, int len) {
     if (pos == 0) {
 	buf[pos++] = '\0';
     }
+
     return pos;
 }
 
 bool ICACHE_FLASH_ATTR deserialize_retainedtopics(char *buf, int len) {
     uint16_t pos = 0;
+
     while (pos < len && buf[pos] != '\0') {
 	uint8_t *topic = (uint8_t *)&buf[pos];
 	pos += os_strlen((char *)topic) + 1;

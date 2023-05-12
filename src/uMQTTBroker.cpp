@@ -43,7 +43,7 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     }
 
     void uMQTTBroker::init() {
-    MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics);
+	MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics);
     }
     #ifdef MQTT_TLS_ON    
     void uMQTTBroker::init(uint16_t portno_TLS) {
@@ -111,6 +111,3 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     void uMQTTBroker::loop(){
         MQTT_network_loop();
     }
-
-
-  

@@ -1,5 +1,21 @@
 #!/bin/bash
-#./generate_certs your-ca-name your-server-name your-client-name
+#./generate_certs your-ca-name your-server-name
+cat > certs_ca.conf <<EOF
+[ req ]
+distinguished_name = req_distinguished_name
+prompt = no
+[ req_distinguished_name ]
+O = $1
+CN = $1
+EOF
+cat > certs_server.conf <<EOF
+[ req ]
+distinguished_name = req_distinguished_name
+prompt = no
+[ req_distinguished_name ]
+O = $2
+CN = $2
+EOF
 openssl ecparam -name prime256v1 -genkey -noout -out ca.key
 openssl req -new -x509 -sha256 -key ca.key -out ca.crt
 openssl ecparam -name prime256v1 -genkey -noout -out server.key

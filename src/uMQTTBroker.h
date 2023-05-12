@@ -1,15 +1,17 @@
-#ifndef _MQTT_BROKER_H_
-#define _MQTT_BROKER_H_
+#ifndef _MQTT_SERVER_H_
+#define _MQTT_SERVER_H_
 
 #include "user_interface.h"
 #include "IPAddress.h"
 #include "string.h"
+
 #ifndef ipv4_addr_t
 #define ipv4_addr_t ip_addr_t
 #endif
 #include "mqtt/mqtt_server.h"
 /*
 extern "C" {
+#include "mqtt/mqtt_retainedlist.h"
 void ICACHE_FLASH_ATTR MQTT_ClientCon_connected_cb(void *arg);
 void ICACHE_FLASH_ATTR MQTT_ClientCon_sent_cb(void *arg);
 void ICACHE_FLASH_ATTR MQTT_ClientCon_discon_cb(void *arg);
@@ -33,9 +35,9 @@ void MQTT_server_onDisconnect(MqttDisconnectCallback disconnectCb);
 
 // Interface for local pub/sub interaction with the broker
 
- bool MQTT_local_publish(uint8_t* topic, uint8_t* data, uint16_t data_length, uint8_t qos, uint8_t retain);
- bool MQTT_local_subscribe(uint8_t* topic, uint8_t qos);
- bool MQTT_local_unsubscribe(uint8_t* topic);
+bool MQTT_local_publish(uint8_t* topic, uint8_t* data, uint16_t data_length, uint8_t qos, uint8_t retain);
+bool MQTT_local_subscribe(uint8_t* topic, uint8_t qos);
+bool MQTT_local_unsubscribe(uint8_t* topic);
 
 // Interface to cleanup after STA disconnect
 
@@ -75,6 +77,7 @@ private:
 
 public:
     uMQTTBroker(uint16_t portno=1883, uint16_t max_subscriptions=30, uint16_t max_retained_topics=30);
+
     void init();
     #ifdef MQTT_TLS_ON
     void init(uint16_t portno_TLS);
@@ -87,7 +90,7 @@ public:
     virtual void onDisconnect(IPAddress addr, String client_id);
     virtual bool onAuth(String username, String password, String client_id,struct _myclientcon *pesp_conn);
     virtual void onData(String topic, const char *data, uint32_t length);
-    static void onRetain(retained_entry *topic);
+    static void onRetain(struct _retained_entry *topic);
 // Infos on currently connected clients
 
     virtual uint16_t getClientCount();
@@ -104,7 +107,6 @@ public:
 // Cleanup all clients on Wifi connection loss
 
     void cleanupClientConnections();
-
 };
 
-#endif /* _MQTT_BROKER_H_ */
+#endif /* _MQTT_SERVER_H_ */

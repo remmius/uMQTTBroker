@@ -25,7 +25,7 @@ void set_retain_flash_sector(){
 	if(RETAINEDTOPIC_FLASH_SECTOR>0){RETAINEDTOPIC_FLASH_SECTOR--;}//keep some distance to rf-sector
 	//Alternative solutions for SDK 3.x? see discussions:
 	//in https://www.esp8266.com/viewtopic.php?p=76325
-   //or https://www.esp8266.com/viewtopic.php?f=159&t=23258&start=4 outdated with SDK 3.x
+    //or https://www.esp8266.com/viewtopic.php?f=159&t=23258&start=4 outdated with SDK 3.x
 	//flash_size_map defintion https://www.espressif.com/sites/default/files/2c-esp8266_non_os_sdk_api_guide_en_v1.5.4.pdf
    DEBUG("RETAINEDTOPIC_FLASH_SECTOR :");
    DEBUG_u32(RETAINEDTOPIC_FLASH_SECTOR);
