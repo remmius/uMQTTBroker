@@ -3,6 +3,21 @@ MQTT Broker library for ESP8266 Arduino
 
 You can start an MQTT broker in any ESP Arduino project. Just clone (or download the zip-file and extract it) into the libraries directory of your Arduino ESP8266 installation.
 
+## Added features based on  martin-ger/uMQTTBroker 
+Replace esp_con with WifiClient from ESP8266WiFi.h to enable simple support for
+- IP6 support for broker with build flag: PIO_FRAMEWORK_ARDUINO_LWIP2_IPV6_HIGHER_BANDWIDTH
+- Add basic TLS support for broker (1 client max due to memory restriction on ESP8266) with build-flag MQTT_TLS_ON
+Callbacks on datasend/datarecieved are not available, therefore a ugly workaround was done looping over the connections for incoming data.
+
+** Notes**
+- MQTT-client still uses esp_conn. To compile with lwip Variant v2, DNS support is simply commented out. I did not test the client at all. 
+- Added Persistance of retain topics with build-flag: MQTT_RETAIN_PERSISTANCE
+- Enhancements require more testing
+- No resending/splitting of messages in case client.availableForWrite() is smaller than the mqtt-message. 
+- Only OO uMQTTBroker was tested so far. Changes only tested rudimentarily. 
+- A better approach (closer to the original esp_conn-functions) would be probably using https://github.com/me-no-dev/ESPAsyncTCP (no TLS?) or similar
+ based on network-callbacks.
+
 **Important: Use the setting "lwip Variant: 1.4 High Bandwidth" in the "Tools" menu**
 
 lwip 2.0 has some strange behaviour that causes the socket to block after 5 connections.

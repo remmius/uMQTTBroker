@@ -15,10 +15,10 @@ extern "C" {
 //#include "lwip/app/espconn.h"
 //#include "lwip/app/espconn_tcp.h"
 #include <ESP8266WiFi.h>
-typedef struct _myclientcon {
+typedef struct _clientcon {
    WiFiClient *client;
    void *reverse; 
- } myclientcon;
+ } clientcon;
 
 #define LOCAL_MQTT_CLIENT ((void*)-1)
 
@@ -28,12 +28,12 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_discon_cb(void *arg);
 void ICACHE_FLASH_ATTR MQTT_ClientCon_recv_cb(void *arg, char *pdata, unsigned short len);
 
 
-typedef bool (*MqttAuthCallback)(const char* username, const char *password, const char* client_id, struct _myclientcon *pesp_conn);
-typedef bool (*MqttConnectCallback)(struct _myclientcon *pesp_conn, uint16_t client_count);
-typedef void (*MqttDisconnectCallback)(struct _myclientcon *pesp_conn, const char* client_id);
+typedef bool (*MqttAuthCallback)(const char* username, const char *password, const char* client_id, struct _clientcon *pclient_conn);
+typedef bool (*MqttConnectCallback)(struct _clientcon *pclient_conn, uint16_t client_count);
+typedef void (*MqttDisconnectCallback)(struct _clientcon *pclient_conn, const char* client_id);
 
 typedef struct _MQTT_ClientCon {
-  struct _myclientcon *pCon;
+  struct _clientcon *pCon;
 //  uint8_t security;
 //  uint32_t port;
 //  ip_addr_t ip;
@@ -59,16 +59,15 @@ extern MQTT_ClientCon *clientcon_list;
 
 uint16_t MQTT_server_countClientCon();
 const char* MQTT_server_getClientId(uint16_t index);
-const struct _myclientcon* MQTT_server_getClientPcon(uint16_t index);
+const struct _clientcon* MQTT_server_getClientPcon(uint16_t index);
 
 void MQTT_server_disconnectClientCon(MQTT_ClientCon *mqttClientCon);
 bool MQTT_server_deleteClientCon(MQTT_ClientCon *mqttClientCon);
 void MQTT_server_cleanupClientCons();
 
 bool MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics);
-#ifdef MQTT_TLS_ON
 bool MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics,uint16_t portno_TLS,const char *pCert,const char *pKey);
-#endif
+
 void MQTT_server_onConnect(MqttConnectCallback connectCb);
 void MQTT_server_onDisconnect(MqttDisconnectCallback disconnectCb);
 void MQTT_server_onAuth(MqttAuthCallback authCb);

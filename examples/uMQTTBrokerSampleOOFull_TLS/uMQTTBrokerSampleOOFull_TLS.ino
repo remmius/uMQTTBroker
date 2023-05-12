@@ -6,9 +6,13 @@
  * Try to connect from a remote client and publish something - the console will show this as well.
  */
 
-#include <ESP8266WiFi.h>
-#include "uMQTTBroker.h"
+#include <Arduino.h>
+#define MQTT_TLS_ON
+#include "certs/server_cert.h"
+#include "certs/server_key.h"
 
+#include <ESP8266WiFi.h>
+#include "uMQTTBroker.h" 
 /*
  * Your WiFi config here
  */
@@ -102,7 +106,7 @@ void setup()
 
   // Start the broker
   Serial.println("Starting MQTT broker");
-  myBroker.init();
+  myBroker.init(8883,server_cert,server_private_key);
 
 /*
  * Subscribe to anything

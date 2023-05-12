@@ -25,9 +25,9 @@ bool MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max
 // Callbacks for message reception, username/password authentication, and client connection
 
 typedef void (*MqttDataCallback)(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t lengh);
-typedef bool (*MqttAuthCallback)(const char* username, const char *password, const char *client_id, struct espconn *pesp_conn);
-typedef bool (*MqttConnectCallback)(struct espconn *pesp_conn, uint16_t client_count);
-typedef void (*MqttDisconnectCallback)(struct espconn *pesp_conn, const char *client_id);
+typedef bool (*MqttAuthCallback)(const char* username, const char *password, const char *client_id, struct espconn *pclient_conn);
+typedef bool (*MqttConnectCallback)(struct espconn *pclient_conn, uint16_t client_count);
+typedef void (*MqttDisconnectCallback)(struct espconn *pclient_conn, const char *client_id);
 
 void MQTT_server_onData(MqttDataCallback dataCb);
 void MQTT_server_onAuth(MqttAuthCallback authCb);
@@ -57,7 +57,7 @@ bool deserialize_retainedtopics(char *buf, int len);
 
 uint16_t MQTT_server_countClientCon();
 const char* MQTT_server_getClientId(uint16_t index);
-const struct _myclientcon* MQTT_server_getClientPcon(uint16_t index);
+const struct _clientcon* MQTT_server_getClientPcon(uint16_t index);
 }
 */
 class uMQTTBroker
@@ -65,31 +65,27 @@ class uMQTTBroker
 private:
     static uMQTTBroker *TheBroker;
     uint16_t _portno;
-    #ifdef MQTT_TLS_ON
     uint16_t _portno_TLS;
-    #endif
     uint16_t _max_subscriptions;
     uint16_t _max_retained_topics;
 
-    static bool _onConnect(struct _myclientcon *pesp_conn, uint16_t client_count);
-    static void _onDisconnect(struct _myclientcon *pesp_conn, const char *client_id);
-    static bool _onAuth(const char* username, const char *password,  const char *client_id, struct _myclientcon *pesp_conn);
+    static bool _onConnect(struct _clientcon *pclient_conn, uint16_t client_count);
+    static void _onDisconnect(struct _clientcon *pclient_conn, const char *client_id);
+    static bool _onAuth(const char* username, const char *password,  const char *client_id, struct _clientcon *pclient_conn);
     static void _onData(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t length);
 
 public:
     uMQTTBroker(uint16_t portno=1883, uint16_t max_subscriptions=30, uint16_t max_retained_topics=30);
 
     void init();
-    #ifdef MQTT_TLS_ON
-    void init(uint16_t portno_TLS,const char *server_cert,const char *pCert,const char *pKey);
-    #endif    
+    void init(uint16_t portno_TLS,const char *pCert,const char *pKey);
     void loop();
 
 // Callbacks on client actions
 
     virtual bool onConnect(IPAddress addr, uint16_t client_count);
     virtual void onDisconnect(IPAddress addr, String client_id);
-    virtual bool onAuth(String username, String password, String client_id,struct _myclientcon *pesp_conn);
+    virtual bool onAuth(String username, String password, String client_id,struct _clientcon *pclient_conn);
     virtual void onData(String topic, const char *data, uint32_t length);
     static void onRetain(struct _retained_entry *topic);
 // Infos on currently connected clients

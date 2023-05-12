@@ -48,11 +48,11 @@ MQTT_ClientCon dummy_clientcon;
 
 #define MAX_CLIENTS 8
 
-myclientcon *myclientcons[MAX_CLIENTS]={ NULL };//TODO use chained-list like for clientcon_list?
+clientcon *clientcons[MAX_CLIENTS]={ NULL };//TODO use chained-list like for clientcon_list?
 WiFiServer *pserver;
 #ifdef MQTT_TLS_ON
 	#define MAX_TLS_CLIENTS 1
-	#define MQTT_TLS_BUFFER_SIZE 2*MQTT_BUF_SIZE
+	#define MQTT_TLS_BUFFER_SIZE 2*MQTT_BUF_SIZE //At least 512bytes required, other wise connections results in certificate error
 	extern "C" void stack_thunk_dump_stack();
 	BearSSL::WiFiServerSecure *pserver_TLS;
 	BearSSL::ServerSessions serverCache(MAX_TLS_CLIENTS);
@@ -60,8 +60,8 @@ WiFiServer *pserver;
 
 static int get_client_id(WiFiClient *client){
 	for (int i=0 ; i<MAX_CLIENTS ; ++i) {
-		if (NULL != myclientcons[i]) {
-			if(client->remotePort()==myclientcons[i]->client->remotePort() && client->remoteIP()==myclientcons[i]->client->remoteIP()){
+		if (NULL != clientcons[i]) {
+			if(client->remotePort()==clientcons[i]->client->remotePort() && client->remoteIP()==clientcons[i]->client->remoteIP()){
 				return i;
 			}        
 		}
@@ -71,16 +71,16 @@ static int get_client_id(WiFiClient *client){
 
 static int add_new_client(WiFiClient *pclient,bool Secure_client){
 	for (int i=0 ; i<MAX_CLIENTS ; ++i) {
-        if (NULL == myclientcons[i]) {             
+        if (NULL == clientcons[i]) {             
           MQTT_INFO("Add client: %d",i);
-          myclientcons[i] = (_myclientcon*) os_zalloc(sizeof(_myclientcon)); 
+          clientcons[i] = (_clientcon*) os_zalloc(sizeof(_clientcon)); 
 		  if(Secure_client==true){
-			myclientcons[i]->client = new BearSSL::WiFiClientSecure(*(BearSSL::WiFiClientSecure*)pclient);
+			clientcons[i]->client = new BearSSL::WiFiClientSecure(*(BearSSL::WiFiClientSecure*)pclient);
 		  }
 		  else{
-			myclientcons[i]->client = new WiFiClient(*pclient);
+			clientcons[i]->client = new WiFiClient(*pclient);
 		  }
-		  MQTT_ClientCon_connected_cb(myclientcons[i]);
+		  MQTT_ClientCon_connected_cb(clientcons[i]);
           return i;
         }
 	}
@@ -100,21 +100,21 @@ static void ICACHE_FLASH_ATTR Network_server_loop(WiFiClient *pclient,bool Secur
 
 static void ICACHE_FLASH_ATTR Network_clients_loop(){
   for (int i=0 ; i<MAX_CLIENTS ; ++i) {
-    if (myclientcons[i]!=NULL){  
+    if (clientcons[i]!=NULL){  
 	  //Read data and trigger callbacks
-	  size_t len =myclientcons[i]->client->available();    
+	  size_t len =clientcons[i]->client->available();    
       if(len>1){ 
           uint8_t buf[MQTT_BUF_SIZE];     
-          myclientcons[i]->client->read(buf, len);
-          MQTT_ClientCon_recv_cb(myclientcons[i],(char *)&buf, len); 
+          clientcons[i]->client->read(buf, len);
+          MQTT_ClientCon_recv_cb(clientcons[i],(char *)&buf, len); 
       }	   
-	  if (myclientcons[i]->client->connected()==false) {        //Remove unconnected-clients    
-            MQTT_ClientCon_discon_cb(myclientcons[i]);
-            //os_free(myclientcons[i]);
+	  if (clientcons[i]->client->connected()==false) {        //Remove unconnected-clients    
+            MQTT_ClientCon_discon_cb(clientcons[i]);
+            //os_free(clientcons[i]);
             MQTT_INFO("Free client");
-            delete(myclientcons[i]->client);
-            os_free(myclientcons[i]);
-            myclientcons[i]=NULL;
+            delete(clientcons[i]->client);
+            os_free(clientcons[i]);
+            clientcons[i]=NULL;
         }
     }
   }
@@ -256,7 +256,7 @@ const char* ICACHE_FLASH_ATTR MQTT_server_getClientId(uint16_t index) {
     return NULL;
 }
 
-const struct _myclientcon* ICACHE_FLASH_ATTR MQTT_server_getClientPcon(uint16_t index) {
+const struct _clientcon* ICACHE_FLASH_ATTR MQTT_server_getClientPcon(uint16_t index) {
     MQTT_ClientCon *p;
     uint16_t count = 0;
     for (p = clientcon_list; p != NULL; p = p->next, count++) {
@@ -436,7 +436,7 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_recv_cb(void *arg, char *pdata, unsigned s
     uint16_t data_len;
     uint8_t *data;
 
-    struct _myclientcon *pCon = (struct _myclientcon *)arg;
+    struct _clientcon *pCon = (struct _clientcon *)arg;
 
     MQTT_INFO("MQTT_ClientCon_recv_cb(): %d bytes of data received\r\n", len);
 
@@ -948,7 +948,7 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_recv_cb(void *arg, char *pdata, unsigned s
 
 /* Called when a client has disconnected from the MQTT server */
 void ICACHE_FLASH_ATTR MQTT_ClientCon_discon_cb(void *arg) {
-    struct _myclientcon *pCon = (struct _myclientcon *)arg;
+    struct _clientcon *pCon = (struct _clientcon *)arg;
     MQTT_ClientCon *clientcon = (MQTT_ClientCon *) pCon->reverse;
 
     MQTT_INFO("MQTT_ClientCon_discon_cb(): client disconnected\r\n");
@@ -961,7 +961,7 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_discon_cb(void *arg) {
 }
 
 void ICACHE_FLASH_ATTR MQTT_ClientCon_sent_cb(void *arg) {
-    struct _myclientcon *pCon = (struct _myclientcon *)arg;
+    struct _clientcon *pCon = (struct _clientcon *)arg;
     MQTT_ClientCon *clientcon = (MQTT_ClientCon *) pCon->reverse;
 
     MQTT_INFO("MQTT_ClientCon_sent_cb(): Data sent to %s \r\n",clientcon->connect_info.client_id);
@@ -976,32 +976,32 @@ void ICACHE_FLASH_ATTR MQTT_ClientCon_sent_cb(void *arg) {
 
 /* Called when a client connects to the MQTT server */
 void ICACHE_FLASH_ATTR MQTT_ClientCon_connected_cb(void *arg) {
-    struct _myclientcon *pespconn = (struct _myclientcon *)arg;
+    struct _clientcon *pclientconn = (struct _clientcon *)arg;
     MQTT_ClientCon *mqttClientCon;
-    pespconn->reverse = NULL;
+    pclientconn->reverse = NULL;
 
     DEBUG("MQTT_ClientCon_connected_cb(): Client connected\r\n");
 
-    //espconn_regist_sentcb(pespconn, MQTT_ClientCon_sent_cb);
-    //espconn_regist_disconcb(pespconn, MQTT_ClientCon_discon_cb);
-    //espconn_regist_recvcb(pespconn, MQTT_ClientCon_recv_cb);
-    //espconn_regist_time(pespconn, 30, 1);
+    //espconn_regist_sentcb(pclientconn, MQTT_ClientCon_sent_cb);
+    //espconn_regist_disconcb(pclientconn, MQTT_ClientCon_discon_cb);
+    //espconn_regist_recvcb(pclientconn, MQTT_ClientCon_recv_cb);
+    //espconn_regist_time(pclientconn, 30, 1);
 
     mqttClientCon = (MQTT_ClientCon *) os_zalloc(sizeof(MQTT_ClientCon));
-    pespconn->reverse = mqttClientCon;
+    pclientconn->reverse = mqttClientCon;
     if (mqttClientCon == NULL) {
 	MQTT_ERROR("ERROR: Cannot allocate client status\r\n");
 	return;
     }
 
-    mqttClientCon->pCon = pespconn;
+    mqttClientCon->pCon = pclientconn;
 
     bool no_mem = (system_get_free_heap_size() < (MQTT_BUF_SIZE + QUEUE_BUFFER_SIZE + 0x400));
     if (no_mem) {
 	MQTT_ERROR("ERROR: No mem for new client connection\r\n");
     }
 
-    if (no_mem || (local_connect_cb != NULL && local_connect_cb(pespconn, MQTT_server_countClientCon()+1) == false)) {
+    if (no_mem || (local_connect_cb != NULL && local_connect_cb(pclientconn, MQTT_server_countClientCon()+1) == false)) {
 	mqttClientCon->connState = TCP_DISCONNECT;
 	system_os_post(MQTT_SERVER_TASK_PRIO, 0, (os_param_t) mqttClientCon);
 	return;

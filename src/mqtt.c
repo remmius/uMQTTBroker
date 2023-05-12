@@ -481,8 +481,8 @@ void ICACHE_FLASH_ATTR mqtt_timer(void *arg) {
 
 void ICACHE_FLASH_ATTR mqtt_tcpclient_discon_cb(void *arg) {
 
-    struct espconn *pespconn = (struct espconn *)arg;
-    MQTT_Client *client = (MQTT_Client *) pespconn->reverse;
+    struct espconn *pclientconn = (struct espconn *)arg;
+    MQTT_Client *client = (MQTT_Client *) pclientconn->reverse;
     MQTT_INFO("TCP: Disconnected callback\r\n");
     if (TCP_DISCONNECTING == client->connState) {
 	client->connState = TCP_DISCONNECTED;

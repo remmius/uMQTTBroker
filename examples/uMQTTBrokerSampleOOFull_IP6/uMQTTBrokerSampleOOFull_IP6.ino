@@ -64,6 +64,9 @@ myMQTTBroker myBroker;
 /*
  * WiFi init stuff
  */
+String linkLocal, ipv6, ipv4;
+#include <AddrList.h>
+
 void startWiFiClient()
 {
   Serial.println("Connecting to "+(String)ssid);
@@ -74,11 +77,34 @@ void startWiFiClient()
     delay(500);
     Serial.print(".");
   }
+  configTime(3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
   Serial.println("");
-  
   Serial.println("WiFi connected");
   Serial.println("IP address: " + WiFi.localIP().toString());
+
+  #if LWIP_IPV6
+// Warten auf die Globale IPv6
+  for (bool configured = false; !configured;) {
+    for (auto addr : addrList)
+      if (configured = addr.isV6() && !addr.isLocal()) {
+        break;
+      }
+    Serial.print('.');
+    delay(500);
+  }
+  Serial.println("\nconnected IPv6\n");
+  for (auto a : addrList) {
+    a.isV6() ? a.isLocal() ? linkLocal = a.toString() : ipv6 = a.toString() : ipv4 = a.toString();
+  }
+//URLs für den Browser ausgeben
+  Serial.printf("IPv4 address: http://%s\n", ipv4.c_str());
+  Serial.printf("IPv6 local: http://[%s]\n", linkLocal.c_str());
+  Serial.printf("IPv6 global: http://[%s]\n", ipv6.c_str());
+#else
+  Serial.printf("IPV6 ist nicht aktiviert\n");
+#endif
 }
+
 
 void startWiFiAP()
 {
