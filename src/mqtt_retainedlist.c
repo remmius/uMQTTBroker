@@ -179,7 +179,7 @@ bool ICACHE_FLASH_ATTR deserialize_retainedtopics(char *buf, int len) {
 	uint8_t *data = (uint8_t *)&buf[pos];
 	pos += data_len;
 	if (pos >= len) return false;
-	char qos = buf[pos++];
+	uint8_t qos = buf[pos++];
 
 	if (update_retainedtopic(topic, data, data_len, qos) == false)
 	    return false;

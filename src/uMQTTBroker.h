@@ -1,5 +1,5 @@
-#ifndef _MQTT_SERVER_H_
-#define _MQTT_SERVER_H_
+#ifndef _MQTT_BROKER_H_
+#define _MQTT_BROKER_H_
 
 #include "user_interface.h"
 #include "IPAddress.h"
@@ -8,6 +8,7 @@
 #ifndef ipv4_addr_t
 #define ipv4_addr_t ip_addr_t
 #endif
+
 #include "mqtt/mqtt_server.h"
 /*
 extern "C" {
@@ -109,4 +110,4 @@ public:
     void cleanupClientConnections();
 };
 
-#endif /* _MQTT_SERVER_H_ */
+#endif /* _MQTT_BROKER_H_ */

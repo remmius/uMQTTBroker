@@ -48,7 +48,7 @@ MQTT_ClientCon dummy_clientcon;
 
 #define MAX_CLIENTS 8
 
-myclientcon *myclientcons[MAX_CLIENTS]={ NULL };//use chained-list like for clientcon_list?..
+myclientcon *myclientcons[MAX_CLIENTS]={ NULL };//TODO use chained-list like for clientcon_list?
 WiFiServer *pserver;
 #ifdef MQTT_TLS_ON
 	#define MAX_TLS_CLIENTS 1
