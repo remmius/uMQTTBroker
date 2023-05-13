@@ -1,7 +1,3 @@
-#ifndef CONFIG_SERVER_CERT_H_
-#define CONFIG_SERVER_CERT_H_
-//content of server.crt
-const char server_cert[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIBVTCB/QIUImjbAVlar4YGqmffP7SfKDf7d4cwCgYIKoZIzj0EAwIwKjETMBEG
 A1UECgwKbXktY2EtbmFtZTETMBEGA1UEAwwKbXktY2EtbmFtZTAeFw0yMzA1MTMx
@@ -12,5 +8,3 @@ ReoIhwBQzEozpDTD2dE4Cmhl37UwCgYIKoZIzj0EAwIDRwAwRAIgKZe4weXAQ2t6
 iQkyEx8RM8FpkviQnRKDAz4V/vyWCagCIEM5i7mKI6xOcjk0aC8/Jm+vViqNSmc2
 yWOY1LRkYgEh
 -----END CERTIFICATE-----
-)EOF";
-#endif

@@ -52,7 +52,9 @@ clientcon *clientcons[MAX_CLIENTS]={ NULL };//TODO use chained-list like for cli
 WiFiServer *pserver;
 #ifdef MQTT_TLS_ON
 	#define MAX_TLS_CLIENTS 1
-	#define MQTT_TLS_BUFFER_SIZE 2*MQTT_BUF_SIZE //At least 512bytes required, other wise connections results in certificate error
+	#define MQTT_TLS_BUFFER_SIZE 2*MQTT_BUF_SIZE 
+	//At least 512bytes required, other wise connections results in certificate error
+	//availableForWrite() returns min(BufferSize_recieve,BufferSize_send)/2
 	extern "C" void stack_thunk_dump_stack();
 	BearSSL::WiFiServerSecure *pserver_TLS;
 	BearSSL::ServerSessions serverCache(MAX_TLS_CLIENTS);
@@ -1060,6 +1062,7 @@ void ICACHE_FLASH_ATTR MQTT_ServerTask(os_event_t * e) {
 			MQTT_WARNING("MQTT: databuffer %u is larger than available byte write %u.",dataLen,sendBufferLen);
 			MQTT_WARNING("MQTT: Msg is not send, this is QOS 0 behaviour?");
 			MQTT_WARNING("MQTT: available for write %lu",clientcon->pCon->client->availableForWrite());
+			//availableForWrite() returns min(BufferSize_recieve,BufferSize_send)/2
 			//TODO Use this? does QUEUE_Gets empty queue already? send in 2 messages?
 			//os_timer_setfn(&mqttClientCon->sendTimer, (os_timer_func_t *) mqtt_send_timer, mqttClientCon);
 			//os_timer_arm(&mqttClientCon->sendTimer, 50, 1);	
@@ -1107,18 +1110,18 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
 		// Cache SSL sessions to accelerate the TLS handshake.
 		pserver_TLS->setCache(&serverCache);
 		pserver_TLS->setSSLVersion(BR_TLS12, BR_TLS12);
-		pserver_TLS->setBufferSizes(MQTT_TLS_BUFFER_SIZE, MQTT_TLS_BUFFER_SIZE);
-		//availableForWrite() returns min(BufferSize_recieve,BufferSize_send)/2
-		//512 results in cert error
+		pserver_TLS->setBufferSizes(MQTT_TLS_BUFFER_SIZE, MQTT_TLS_BUFFER_SIZE);		
 		pserver_TLS->begin();
 		res=true;
 	}
-	else{MQTT_INFO("No valid TLS-port: %d specified.\r\n",portno_TLS);}
+	else{MQTT_INFO("No valid TLS-port: %d specified. Server not listening on this port.\r\n",portno_TLS);}
 	#endif
 	if(portno>0){
 		return MQTT_server_start(portno, max_subscriptions, max_retained_topics);
 	}
-	else{return res;}
+	else{
+		MQTT_INFO("No valid MQTT-port: %d specified. Server not listening on this port.\r\n",portno);
+		return res;}
 }
 
 

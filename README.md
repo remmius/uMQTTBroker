@@ -1,22 +1,21 @@
+## Added features based on martin-ger/uMQTTBroker project
+Replaced esp_conn-functions with WifiClient from ESP8266WiFi.h to enable simple support IP6 broker address, usage of newer core versions/lwip version and TLS-client option.
+Callbacks on datasend/datarecieved are not available in WifiClient, therefore a 'ugly' workaround was done looping over the connections for incoming data.
+
+** Notes**
+- IP6 support for broker with Arduino v2 IP6 (low memory)flag or build-flag PIO_FRAMEWORK_ARDUINO_LWIP2_IPV6_HIGHER_BANDWIDTH
+- Add basic TLS support for broker with build-flag MQTT_TLS_ON in defaults.h. In ArduinoIDE set SSL support to all ciphers. Client certificate is not validated. Limited to 1 
+TLS-client due to memory restriction on ESP8266. ~10KB Ram needed with 512  MQTT_BUF_SIZE per client. Dont't forget to generate our own certificates, find a exa,ple script in the certs folder of the corresponding example!
+- The MQTT-client component still uses esp_conn. To compile with lwip Variant v2, DNS support is simply commented out to resolve miss address members for now. I did not test/use the client. 
+- Added Persistance of retain topics with build-flag: MQTT_RETAIN_PERSISTANCE (Retain topics are stored in flash, which has a limited lifetime!)
+- No resending/splitting of messages in case client.availableForWrite() is smaller than the mqtt-message. 
+- Changes only tested rudimentarily. 
+- A better approach (closer to the original esp_conn-functions) would be probably using something like https://github.com/me-no-dev/ESPAsyncTCP (no TLS?) or similar based on network-callbacks.
+
 # uMQTTBroker
 MQTT Broker library for ESP8266 Arduino
 
 You can start an MQTT broker in any ESP Arduino project. Just clone (or download the zip-file and extract it) into the libraries directory of your Arduino ESP8266 installation.
-
-## Added features based on  martin-ger/uMQTTBroker 
-Replace esp_con with WifiClient from ESP8266WiFi.h to enable simple support for
-- IP6 support for broker with build flag: PIO_FRAMEWORK_ARDUINO_LWIP2_IPV6_HIGHER_BANDWIDTH
-- Add basic TLS support for broker (1 client max due to memory restriction on ESP8266) with build-flag MQTT_TLS_ON
-Callbacks on datasend/datarecieved are not available, therefore a ugly workaround was done looping over the connections for incoming data.
-
-** Notes**
-- MQTT-client still uses esp_conn. To compile with lwip Variant v2, DNS support is simply commented out. I did not test the client at all. 
-- Added Persistance of retain topics with build-flag: MQTT_RETAIN_PERSISTANCE
-- Enhancements require more testing
-- No resending/splitting of messages in case client.availableForWrite() is smaller than the mqtt-message. 
-- Only OO uMQTTBroker was tested so far. Changes only tested rudimentarily. 
-- A better approach (closer to the original esp_conn-functions) would be probably using https://github.com/me-no-dev/ESPAsyncTCP (no TLS?) or similar
- based on network-callbacks.
 
 **Important: Use the setting "lwip Variant: 1.4 High Bandwidth" in the "Tools" menu**
 

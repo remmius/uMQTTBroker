@@ -12,8 +12,8 @@
 /*
  * Your WiFi config here
  */
-char ssid[] = "HOME_MK";      // your network SSID (name)
-char pass[] =  "92637Weiden"; // your network password
+char ssid[] = "";      // your network SSID (name)
+char pass[] =  ""; // your network password
 bool WiFiAP = false;      // Do yo want the ESP as AP?
 
 /*
@@ -146,6 +146,7 @@ void loop()
   if(millis() - lastRefreshTime >= REFRESH_INTERVAL)
   {
     myBroker.publish("broker/counter", (String)counter++);
+    Serial.println(ESP.getFreeHeap());
     lastRefreshTime = millis();
   }
 

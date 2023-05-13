@@ -10,7 +10,6 @@
 #include <osapi.h>//Required for os_printf
 
 #if defined(MQTT_DEBUG_ON)
-
 #define MQTT_INFO( format, ... ) os_printf( format, ## __VA_ARGS__ ) //this does not print in c-files (missing Serial)
 #define DEBUG(msg) Debug(msg)
 #define DEBUG_B(buf, len) Debug_b(buf, len)
