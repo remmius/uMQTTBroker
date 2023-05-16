@@ -59,7 +59,6 @@ void setup()
 
 void loop()
 {   
+  myBroker.loop(); 
   // do anything here
-  delay(1000);
 }
-

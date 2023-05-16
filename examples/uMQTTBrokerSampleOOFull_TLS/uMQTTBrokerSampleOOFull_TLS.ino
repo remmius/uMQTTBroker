@@ -6,9 +6,12 @@
  * Try to connect from a remote client and publish something - the console will show this as well.
  */
 
+#include <Arduino.h>
+#include "certs/server_cert.h"
+#include "certs/server_key.h"
+#include "certs/ca_cert.h"
 #include <ESP8266WiFi.h>
-#include "uMQTTBroker.h"
-
+#include "uMQTTBroker.h" 
 /*
  * Your WiFi config here
  */
@@ -102,7 +105,9 @@ void setup()
 
   // Start the broker
   Serial.println("Starting MQTT broker");
-  myBroker.init();
+  myBroker.init(8883,server_cert,server_private_key);//Without Client-certificate based authentification
+  //myBroker.init(8883,server_cert,server_private_key,ca_cert);//With Client-certificate based authentification
+    //Results in well known BSSL:_wait_for_handshake: failed error even with 160Mhz
 
 /*
  * Subscribe to anything
@@ -120,7 +125,9 @@ void loop()
   if(millis() - lastRefreshTime >= REFRESH_INTERVAL)
   {
     myBroker.publish("broker/counter", (String)counter++);
+    Serial.println(ESP.getFreeHeap());
     lastRefreshTime = millis();
+    
   }
 
 }

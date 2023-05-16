@@ -9,6 +9,7 @@
 
 #include "mqtt/mqtt_retainedlist.h"
 #include "mqtt/mqtt_topics.h"
+#include "mqtt/config_flash.h"
 
 static retained_entry *retained_list = NULL;
 static uint16_t max_entry;
@@ -29,7 +30,7 @@ bool ICACHE_FLASH_ATTR update_retainedtopic(uint8_t * topic, uint8_t * data, uin
 
     // look for topic in list
     for (i = 0; i < max_entry; i++) {
-	if (retained_list[i].topic != NULL && os_strcmp(retained_list[i].topic, topic) == 0)
+	if (retained_list[i].topic != NULL && os_strcmp((char*)retained_list[i].topic, (char*)topic) == 0)
 	    break;
     }
 
@@ -49,12 +50,12 @@ bool ICACHE_FLASH_ATTR update_retainedtopic(uint8_t * topic, uint8_t * data, uin
 	    // list full
 	    return false;
 	}
-	retained_list[i].topic = (uint8_t *) os_malloc(os_strlen(topic) + 1);
+	retained_list[i].topic = (uint8_t *) os_malloc(os_strlen((char*)topic) + 1);
 	if (retained_list[i].topic == NULL) {
 	    // out of mem
 	    return false;
 	}
-	os_strcpy(retained_list[i].topic, topic);
+	os_strcpy((char*)retained_list[i].topic, (char*)topic);
     }
     // if empty new data - delete
     if (data_len == 0) {
@@ -104,7 +105,7 @@ bool ICACHE_FLASH_ATTR find_retainedtopic(uint8_t * topic, find_retainedtopic_cb
 
     for (i = 0; i < max_entry; i++) {
 	if (retained_list[i].topic != NULL) {
-	    if (Topics_matches(topic, 1, retained_list[i].topic)) {
+	    if (Topics_matches((char*)topic, 1, (char*)retained_list[i].topic)) {
 		(*cb) (&retained_list[i], user_data);
 		retval = true;
 	    }
@@ -128,7 +129,7 @@ void ICACHE_FLASH_ATTR iterate_retainedtopics(iterate_retainedtopic_cb cb, void 
 }
 
 bool ICACHE_FLASH_ATTR clear_cb(retained_entry *entry, void *user_data) {
-    update_retainedtopic(entry->topic, "", 0, entry->qos);
+    update_retainedtopic(entry->topic,(uint8_t*) "", 0, entry->qos);
     return false;
 }
 
@@ -146,10 +147,10 @@ int ICACHE_FLASH_ATTR serialize_retainedtopics(char *buf, int len) {
     for (i = 0; i < max_entry; i++) {
 	if (retained_list[i].topic != NULL) {
 	    uint16_t data_len = retained_list[i].data_len;
-	    if (pos + os_strlen(retained_list[i].topic) + 4 + data_len + 1 >= len-1)
+	    if (pos + os_strlen((char*)retained_list[i].topic) + 4 + data_len + 1 >= len-1)
 		return 0;
-	    os_strcpy(&buf[pos], retained_list[i].topic);
-	    pos += os_strlen(retained_list[i].topic) + 1;
+	    os_strcpy(&buf[pos], (char*)retained_list[i].topic);
+	    pos += os_strlen((char*)retained_list[i].topic) + 1;
 	    
 	    buf[pos++] = data_len & 0xff;
 	    buf[pos++] = (data_len >> 8) & 0xff;
@@ -171,11 +172,11 @@ bool ICACHE_FLASH_ATTR deserialize_retainedtopics(char *buf, int len) {
     uint16_t pos = 0;
 
     while (pos < len && buf[pos] != '\0') {
-	uint8_t *topic = &buf[pos];
-	pos += os_strlen(topic) + 1;
+	uint8_t *topic = (uint8_t *)&buf[pos];
+	pos += os_strlen((char *)topic) + 1;
 	if (pos >= len) return false;
 	uint16_t data_len = buf[pos++] + (buf[pos++] << 8);
-	uint8_t *data = &buf[pos];
+	uint8_t *data = (uint8_t *)&buf[pos];
 	pos += data_len;
 	if (pos >= len) return false;
 	uint8_t qos = buf[pos++];
@@ -189,3 +190,43 @@ bool ICACHE_FLASH_ATTR deserialize_retainedtopics(char *buf, int len) {
 void ICACHE_FLASH_ATTR set_on_retainedtopic_cb(on_retainedtopic_cb cb) {
     retained_cb = cb;
 }
+
+
+bool ICACHE_FLASH_ATTR save_retainedtopics() {
+#ifdef MQTT_RETAIN_PERSISTANCE
+      uint8_t buffer[MAX_RETAINED_LEN];
+      int len = sizeof(buffer);
+      len = serialize_retainedtopics((char *)buffer, len);
+	  DEBUG("RetainedTopic-Buffer to flash");
+	  DEBUG_B(buffer, len);
+      if (len) {
+        blob_save((uint32_t *)buffer, len);
+		//DEBUG("Test reloading from flash");
+		//int len2 = sizeof(buffer);
+		//uint8_t buffer2[MAX_RETAINED_LEN];
+		//blob_load((uint32_t *)buffer2, len2);		
+		//DEBUG_B(buffer2, len);
+        return true;
+      }
+#endif
+      return false;
+  }
+  
+bool ICACHE_FLASH_ATTR load_retainedtopics() {
+#ifdef MQTT_RETAIN_PERSISTANCE
+	  set_retain_flash_sector();
+      uint8_t buffer[MAX_RETAINED_LEN];
+      int len = sizeof(buffer);
+      blob_load((uint32_t *)buffer, len);
+	  DEBUG("RetainedTopic-Buffer from flash");
+	  DEBUG_B(buffer, len);
+      return deserialize_retainedtopics((char*)buffer, len);
+#else
+	  return false;
+#endif
+	 
+  }
+
+
+
+

@@ -65,7 +65,7 @@ os_event_t mqtt_procTaskQueue[MQTT_TASK_QUEUE_SIZE];
 #ifdef PROTOCOL_NAMEv311
 LOCAL uint8_t zero_len_id[2] = { 0, 0 };
 #endif
-
+/*
 LOCAL void ICACHE_FLASH_ATTR mqtt_dns_found(const char *name, ip_addr_t * ipaddr, void *arg) {
     struct espconn *pConn = (struct espconn *)arg;
     MQTT_Client *client = (MQTT_Client *) pConn->reverse;
@@ -99,7 +99,7 @@ LOCAL void ICACHE_FLASH_ATTR mqtt_dns_found(const char *name, ip_addr_t * ipaddr
 
     system_os_post(MQTT_TASK_PRIO, 0, (os_param_t) client);
 }
-
+*/
 LOCAL void ICACHE_FLASH_ATTR deliver_publish(MQTT_Client * client, uint8_t * message, int length) {
     mqtt_event_data_t event_data;
 
@@ -481,8 +481,8 @@ void ICACHE_FLASH_ATTR mqtt_timer(void *arg) {
 
 void ICACHE_FLASH_ATTR mqtt_tcpclient_discon_cb(void *arg) {
 
-    struct espconn *pespconn = (struct espconn *)arg;
-    MQTT_Client *client = (MQTT_Client *) pespconn->reverse;
+    struct espconn *pclientconn = (struct espconn *)arg;
+    MQTT_Client *client = (MQTT_Client *) pclientconn->reverse;
     MQTT_INFO("TCP: Disconnected callback\r\n");
     if (TCP_DISCONNECTING == client->connState) {
 	client->connState = TCP_DISCONNECTED;
@@ -899,7 +899,7 @@ void ICACHE_FLASH_ATTR MQTT_Connect(MQTT_Client * mqttClient) {
 	}
     } else {
 	MQTT_INFO("TCP: Connect to domain %s:%d\r\n", mqttClient->host, mqttClient->port);
-	espconn_gethostbyname(mqttClient->pCon, mqttClient->host, &mqttClient->ip, mqtt_dns_found);
+	//espconn_gethostbyname(mqttClient->pCon, mqttClient->host, &mqttClient->ip, mqtt_dns_found);
     }
     mqttClient->connState = TCP_CONNECTING;
 }
