@@ -113,9 +113,9 @@ static void ICACHE_FLASH_ATTR Network_clients_loop(){
       }	   
 	  else if (clientcons[i]->client->connected()==false) {//Remove unconnected-clients,only if no data is pending.
 	  		//Otherwise the connection is deleted before the message is handled, if client disconnects directly after sending a msg
-			//TOFIX: if TLS-message-buf is not available yet, and client closed connection already=> msg is lost   
+			//TOFIX: if TLS-message-buf is not available yet, and client closed connection already=> msg is lost. With tobedeleted-delay not reproducible anymore  
 			// why does client->available() return 0?
-			// loosly linked discussions on the connected()/available() returns:
+			// loosly linked discussions on the connected()/available()-returns:
 			//https://github.com/esp8266/Arduino/issues/6701
 			//https://github.com/letscontrolit/ESPEasy/pull/2811/files
 			if(clientcons[i]->tobedeleted==false){//delay deleting by 1 loop-run, TODO: More delay required?
