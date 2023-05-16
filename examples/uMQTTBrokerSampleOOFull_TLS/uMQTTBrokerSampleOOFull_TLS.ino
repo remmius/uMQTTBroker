@@ -9,7 +9,7 @@
 #include <Arduino.h>
 #include "certs/server_cert.h"
 #include "certs/server_key.h"
-
+#include "certs/ca_cert.h"
 #include <ESP8266WiFi.h>
 #include "uMQTTBroker.h" 
 /*
@@ -105,7 +105,8 @@ void setup()
 
   // Start the broker
   Serial.println("Starting MQTT broker");
-  myBroker.init(8883,server_cert,server_private_key);
+  //myBroker.init(8883,server_cert,server_private_key,ca_cert);//With Client-certificate based authentification
+  myBroker.init(8883,server_cert,server_private_key);//Without Client-certificate based authentification
 
 /*
  * Subscribe to anything

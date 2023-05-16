@@ -78,7 +78,7 @@ public:
     uMQTTBroker(uint16_t portno=1883, uint16_t max_subscriptions=30, uint16_t max_retained_topics=30);
 
     void init();
-    void init(uint16_t portno_TLS,const char *pCert,const char *pKey);
+    void init(uint16_t portno_TLS,const char *pCert,const char *pKey,const char *pCaCert=NULL);
     void loop();
 
 // Callbacks on client actions

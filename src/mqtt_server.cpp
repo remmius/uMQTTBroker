@@ -82,6 +82,7 @@ static int add_new_client(WiFiClient *pclient,bool Secure_client){
 		  else{
 			clientcons[i]->client = new WiFiClient(*pclient);
 		  }
+		  clientcons[i]->tobedeleted=false;
 		  MQTT_ClientCon_connected_cb(clientcons[i]);
           return i;
         }
@@ -110,13 +111,23 @@ static void ICACHE_FLASH_ATTR Network_clients_loop(){
           clientcons[i]->client->read(buf, len);
           MQTT_ClientCon_recv_cb(clientcons[i],(char *)&buf, len); 
       }	   
-	  if (clientcons[i]->client->connected()==false) {        //Remove unconnected-clients    
-            MQTT_ClientCon_discon_cb(clientcons[i]);
-            //os_free(clientcons[i]);
-            MQTT_INFO("Free client");
-            delete(clientcons[i]->client);
-            os_free(clientcons[i]);
-            clientcons[i]=NULL;
+	  else if (clientcons[i]->client->connected()==false) {//Remove unconnected-clients,only if no data is pending.
+	  		//Otherwise the connection is deleted before the message is handled 
+			//TOFIX: if TLS-message-buf is not available yet, and client closed connection already=> msg is lost   
+			// why does available() return 0? use timeout before deleting?
+			// more discussions:
+			//https://github.com/esp8266/Arduino/issues/6701
+			//https://github.com/letscontrolit/ESPEasy/pull/2811/files
+			if(clientcons[i]->tobedeleted==false){//delay deleting by 1 loop-run
+				clientcons[i]->tobedeleted=true;
+			}
+			else{
+				MQTT_ClientCon_discon_cb(clientcons[i]);
+				MQTT_INFO("Free client");
+				delete(clientcons[i]->client);
+				os_free(clientcons[i]);
+				clientcons[i]=NULL;
+			}
         }
     }
   }
@@ -1098,7 +1109,7 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
     return true;
 }
 
-bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics,uint16_t portno_TLS,const char *pCert,const char *pKey) {
+bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics,uint16_t portno_TLS,const char *pCert,const char *pKey,const char *pCaCert) {
 	bool res=false;
 	#ifdef MQTT_TLS_ON	
 	if(portno_TLS>0){
@@ -1107,6 +1118,11 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
 		BearSSL::X509List *serverCertList = new BearSSL::X509List(pCert);//TODO add multiple cert/key-pairs
 		BearSSL::PrivateKey *serverPrivKey = new BearSSL::PrivateKey(pKey);
 		pserver_TLS->setECCert(serverCertList, BR_KEYTYPE_KEYX | BR_KEYTYPE_EC, serverPrivKey);
+		if (pCaCert != NULL) {
+			BearSSL::X509List *serverTrustedCA = new BearSSL::X509List(pCaCert);
+  			pserver_TLS->setClientTrustAnchor(serverTrustedCA);
+			MQTT_INFO(" with client-cert authentification");
+		}
 		// Cache SSL sessions to accelerate the TLS handshake.
 		pserver_TLS->setCache(&serverCache);
 		pserver_TLS->setSSLVersion(BR_TLS12, BR_TLS12);

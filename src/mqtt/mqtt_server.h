@@ -17,6 +17,7 @@ extern "C" {
 #include <ESP8266WiFi.h>
 typedef struct _clientcon {
    WiFiClient *client;
+   bool tobedeleted;
    void *reverse; 
  } clientcon;
 
@@ -66,7 +67,7 @@ bool MQTT_server_deleteClientCon(MQTT_ClientCon *mqttClientCon);
 void MQTT_server_cleanupClientCons();
 
 bool MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics);
-bool MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics,uint16_t portno_TLS,const char *pCert,const char *pKey);
+bool MQTT_server_start(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics,uint16_t portno_TLS,const char *pCert,const char *pKey,const char *pCaCert);
 
 void MQTT_server_onConnect(MqttConnectCallback connectCb);
 void MQTT_server_onDisconnect(MqttDisconnectCallback disconnectCb);

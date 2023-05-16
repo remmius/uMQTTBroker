@@ -43,9 +43,9 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     void uMQTTBroker::init() {
 	MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics);
     }
-    void uMQTTBroker::init(uint16_t portno_TLS,const char *pCert,const char *pKey) {
+    void uMQTTBroker::init(uint16_t portno_TLS,const char *pCert,const char *pKey,const char *pCaCert) {
         _portno_TLS=portno_TLS;
-        MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics,_portno_TLS,pCert,pKey);
+        MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics,_portno_TLS,pCert,pKey,pCaCert);
     }
     
     bool uMQTTBroker::onConnect(IPAddress addr, uint16_t client_count) {
