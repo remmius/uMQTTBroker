@@ -9,12 +9,16 @@
 // QUEUE_BUFFER_SIZE is the max. size of all pending outbound messages for one connection 
 //
 
+// #ifndef MQTT_TLS_ON
+// #define MQTT_TLS_ON
+// #endif
+
 #ifndef MQTT_BUF_SIZE
-#define MQTT_BUF_SIZE   1024
+#define MQTT_BUF_SIZE   512
 #endif
 
 #ifndef QUEUE_BUFFER_SIZE
-#define QUEUE_BUFFER_SIZE 2048
+#define QUEUE_BUFFER_SIZE 1024
 #endif
 
 #ifndef MQTT_KEEPALIVE

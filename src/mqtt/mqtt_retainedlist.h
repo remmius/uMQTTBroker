@@ -1,7 +1,9 @@
 #ifndef _MQTT_RETAINEDLIST_H_
 #define _MQTT_RETAINEDLIST_H_
 
-#include "mqtt_server.h"
+#include "debug.h"
+#define RETAINED_SLOT	0
+#define MAX_RETAINED_LEN 0x200
 
 typedef struct _retained_entry {
     uint8_t *topic;
@@ -24,5 +26,6 @@ int serialize_retainedtopics(char *buf, int len);
 bool deserialize_retainedtopics(char *buf, int len);
 
 void set_on_retainedtopic_cb(on_retainedtopic_cb cb);
-
+bool load_retainedtopics();
+bool save_retainedtopics();
 #endif /* _MQTT_RETAINEDLIST_H_ */

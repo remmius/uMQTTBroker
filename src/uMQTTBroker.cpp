@@ -1,25 +1,18 @@
 
 #include "uMQTTBroker.h"
-#include "espconn.h"
 
 uMQTTBroker *uMQTTBroker::TheBroker;
 
-    bool uMQTTBroker::_onConnect(struct espconn *pesp_conn, uint16_t client_count) {
-	IPAddress connAddr(pesp_conn->proto.tcp->remote_ip[0], pesp_conn->proto.tcp->remote_ip[1],
-			   pesp_conn->proto.tcp->remote_ip[2], pesp_conn->proto.tcp->remote_ip[3]);
-	
-	return TheBroker->onConnect(connAddr, client_count);
+    bool uMQTTBroker::_onConnect(struct _clientcon *pclient_conn, uint16_t client_count) {
+	return TheBroker->onConnect(pclient_conn->client->remoteIP(), client_count);
+   }
+
+    void uMQTTBroker::_onDisconnect(struct _clientcon *pclient_conn, const char *client_id) {
+	TheBroker->onDisconnect(pclient_conn->client->remoteIP(), (String)client_id);
     }
 
-    void uMQTTBroker::_onDisconnect(struct espconn *pesp_conn, const char *client_id) {
-	IPAddress connAddr(pesp_conn->proto.tcp->remote_ip[0], pesp_conn->proto.tcp->remote_ip[1],
-			   pesp_conn->proto.tcp->remote_ip[2], pesp_conn->proto.tcp->remote_ip[3]);
-	
-	    TheBroker->onDisconnect(connAddr, (String)client_id);
-    }
-
-    bool uMQTTBroker::_onAuth(const char* username, const char *password, const char* client_id, struct espconn *pesp_conn) {
-	return TheBroker->onAuth((String)username, (String)password, (String)client_id);
+    bool uMQTTBroker::_onAuth(const char* username, const char *password, const char* client_id, struct _clientcon *pclient_conn) {
+    return TheBroker->onAuth((String)username, (String)password, (String)client_id,pclient_conn);
     }
 
     void uMQTTBroker::_onData(uint32_t *args, const char* topic, uint32_t topic_len, const char *data, uint32_t length) {
@@ -28,6 +21,10 @@ uMQTTBroker *uMQTTBroker::TheBroker;
 	os_memcpy(topic_str, topic, topic_len);
 	topic_str[topic_len] = '\0';
 	TheBroker->onData((String)topic_str, data, length);
+    }
+
+    void uMQTTBroker::onRetain(retained_entry *topic){
+      save_retainedtopics();
     }
 
     uMQTTBroker::uMQTTBroker(uint16_t portno, uint16_t max_subscriptions, uint16_t max_retained_topics) {
@@ -40,12 +37,17 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     MQTT_server_onDisconnect(_onDisconnect);
 	MQTT_server_onAuth(_onAuth);
 	MQTT_server_onData(_onData);
+    MQTT_server_onRetain(uMQTTBroker::onRetain);
     }
 
     void uMQTTBroker::init() {
 	MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics);
     }
-
+    void uMQTTBroker::init(uint16_t portno_TLS,const char *pCert,const char *pKey,const char *pCaCert) {
+        _portno_TLS=portno_TLS;
+        MQTT_server_start(_portno, _max_subscriptions, _max_retained_topics,_portno_TLS,pCert,pKey,pCaCert);
+    }
+    
     bool uMQTTBroker::onConnect(IPAddress addr, uint16_t client_count) {
 	return true;
     }
@@ -54,7 +56,7 @@ uMQTTBroker *uMQTTBroker::TheBroker;
 	return;
     }
 
-    bool uMQTTBroker::onAuth(String username, String password, String client_id) {
+    bool uMQTTBroker::onAuth(String username, String password, String client_id,struct _clientcon *pclient_conn) {
 	return true;
     }
 
@@ -78,10 +80,10 @@ uMQTTBroker *uMQTTBroker::TheBroker;
     }
 
     bool uMQTTBroker::getClientAddr(uint16_t index, IPAddress& addr) {
-        const struct espconn* pesp_conn = MQTT_server_getClientPcon(index);
-        if (pesp_conn == NULL)
+        const struct _clientcon* pclient_conn = MQTT_server_getClientPcon(index);
+        if (pclient_conn == NULL)
             return false;
-        addr = pesp_conn->proto.tcp->remote_ip;
+        addr = pclient_conn->client->remoteIP();
         return true;
     }
 
@@ -101,3 +103,6 @@ uMQTTBroker *uMQTTBroker::TheBroker;
 	MQTT_server_cleanupClientCons();
     }
 
+    void uMQTTBroker::loop(){
+        MQTT_network_loop();
+    }
