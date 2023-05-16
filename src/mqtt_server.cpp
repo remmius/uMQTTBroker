@@ -112,13 +112,13 @@ static void ICACHE_FLASH_ATTR Network_clients_loop(){
           MQTT_ClientCon_recv_cb(clientcons[i],(char *)&buf, len); 
       }	   
 	  else if (clientcons[i]->client->connected()==false) {//Remove unconnected-clients,only if no data is pending.
-	  		//Otherwise the connection is deleted before the message is handled 
+	  		//Otherwise the connection is deleted before the message is handled, if client disconnects directly after sending a msg
 			//TOFIX: if TLS-message-buf is not available yet, and client closed connection already=> msg is lost   
-			// why does available() return 0? use timeout before deleting?
-			// more discussions:
+			// why does client->available() return 0?
+			// loosly linked discussions on the connected()/available() returns:
 			//https://github.com/esp8266/Arduino/issues/6701
 			//https://github.com/letscontrolit/ESPEasy/pull/2811/files
-			if(clientcons[i]->tobedeleted==false){//delay deleting by 1 loop-run
+			if(clientcons[i]->tobedeleted==false){//delay deleting by 1 loop-run, TODO: More delay required?
 				clientcons[i]->tobedeleted=true;
 			}
 			else{
@@ -1121,7 +1121,7 @@ bool ICACHE_FLASH_ATTR MQTT_server_start(uint16_t portno, uint16_t max_subscript
 		if (pCaCert != NULL) {
 			BearSSL::X509List *serverTrustedCA = new BearSSL::X509List(pCaCert);
   			pserver_TLS->setClientTrustAnchor(serverTrustedCA);
-			MQTT_INFO(" with client-cert authentification");
+			MQTT_INFO(" with client-cert authentification \n");
 		}
 		// Cache SSL sessions to accelerate the TLS handshake.
 		pserver_TLS->setCache(&serverCache);
